@@ -1,0 +1,58 @@
+---
+title: "AI Usage Report"
+subtitle: "CSC3107 Team Poster Project -- Team SlateBlue"
+author: "Team SlateBlue"
+date: today
+format:
+  html:
+    theme: flatly
+    toc: true
+    embed-resources: true
+execute:
+  echo: false
+---
+
+## AI Usage Report
+
+*This report documents how Team SlateBlue used generative AI tools throughout the poster project. All referenced conversations can be found in the AI Interaction Record files in the `ai_logs/` folder.*
+
+### 1. Tools Used
+
+| Tool | Version | Purpose |
+|------|---------|---------|
+| Claude (Anthropic) | Claude Sonnet 4.6 | Project scaffolding, R/ggplot2 code generation, design feedback |
+| *(Add other tools your team used)* | | |
+
+### 2. Prompting Strategies
+
+*(Describe how you framed prompts. Did you iterate? Did you provide context like data samples, prior plot drafts, or error messages?)*
+
+**Example:** We provided Claude with our week 5 proposal PDF, the instructor feedback notes, and the raw Excel dataset structure when asking it to scaffold the project. This gave the AI enough context to generate code that matched our specific dataset columns and the conversion factor (MtC to GtCO2). We iterated on prompts by starting broad ("generate the requirements files for the project") and then refining based on the output.
+
+### 3. Influence on Design Decisions
+
+**Decision 1: Sparkline summary table**
+The instructor feedback suggested using a sparkline table. When we asked Claude to incorporate this, it suggested a dual approach: a `knitr::kable` summary statistics table paired with sparkline-style small multiples using `ggplot2` facets with minimal axis chrome. We adopted this because the `gt` sparkline approach would have required additional dependencies, and the faceted mini-charts achieve the same visual effect while staying within core `ggplot2`.
+
+*(See AI Interaction Record: `ai_logs/ai-log-claude-sonnet-4-6.md`, conversation on [date])*
+
+**Decision 2: % share line chart instead of stacked area for "Rest of World"**
+The instructor asked whether "Rest of World" was necessary and suggested representing it as a percentage. Claude suggested replacing the stacked area entirely with a % share line chart where all five regions are plotted as lines. We accepted this because it directly addresses the original chart's core flaw (unstacked comparisons) and incorporates the instructor's feedback.
+
+*(See AI Interaction Record: `ai_logs/ai-log-claude-sonnet-4-6.md`, conversation on [date])*
+
+### 4. Corrections and Rejections
+
+**Correction 1:** *(Describe a case where you corrected or rejected AI output. For example: the AI generated code that used a wrong column name, produced an incorrect aggregation, suggested a chart type that didn't serve the design brief, etc.)*
+
+**Correction 2:** *(Describe another case. For example: the AI's suggested colour palette didn't have enough contrast, the annotation placement was wrong, the data cleaning missed a step, etc.)*
+
+### 5. Ethical and Accountable Use
+
+- **Verification:** All data transformations were verified against the original Excel file. The conversion factor (1 MtC = 3.664 MtCO2) was cross-checked with the dataset's own documentation in the Summary sheet.
+- **Attribution:** AI-generated code was reviewed, understood, and modified by team members before inclusion. This report documents all significant AI contributions.
+- **Limitations observed:** *(Note any limitations, e.g., AI couldn't read the Excel file directly, suggested packages that weren't installed, produced plausible but incorrect column names, etc.)*
+
+---
+
+**Word count:** [INSERT WORD COUNT]

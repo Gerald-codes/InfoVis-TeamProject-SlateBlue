@@ -1,0 +1,325 @@
+---
+title: "Week 09 Mid-Project Data Check-In"
+subtitle: "CSC3107 Information Visualization"
+author: "Team SlateBlue"
+date: today
+format:
+  html:
+    theme: flatly
+    toc: true
+    code-fold: true
+    code-tools: true
+    embed-resources: true
+execute:
+  warning: false
+  message: false
+---
+
+## 1. Data Source Description
+
+| | |
+|---|---|
+| **Dataset** | National Fossil Carbon Emissions 2024 v1.0 |
+| **Source** | Global Carbon Project (GCB 2024) |
+| **URL** | <https://globalcarbonbudget.org/gcb-2024/> |
+| **File** | `National_Fossil_Carbon_Emissions_2024v1.0-1.xlsx` |
+
+The dataset records annual fossil CO₂ emissions at the country level, covering approximately
+250 countries from 1850 to 2023. Values are reported in **million tonnes of carbon per year
+(MtC/yr)**. We convert to **billion tonnes of CO₂ per year (GtCO₂/yr)** using the factor
+1 MtC = 3.664 MtCO₂ (as documented in the dataset).
+
+We use the **"Territorial Emissions"** sheet, which records emissions produced within each
+country's borders (excluding land-use change and consumption-based transfers).
+
+The raw Excel file is included in `data/raw/` and the cleaned CSV outputs are in `data/cleaned/`.
+
+## 2. Data Import and Cleaning Pipeline
+
+### 2.1 Load Packages
+
+```{r}
+#| label: load-packages
+library(tidyverse)
+library(readxl)
+library(scales)
+```
+
+### 2.2 Import Raw Data
+
+```{r}
+#| label: import-raw
+emissions_raw <- read_excel(
+  "data/raw/National_Fossil_Carbon_Emissions_2024v1.0-1.xlsx",
+  sheet = "Territorial Emissions",
+  skip = 11
+)
+
+# First column is the year (unnamed in Excel)
+names(emissions_raw)[1] <- "year"
+
+cat(
+  "Raw dataset:",
+  nrow(emissions_raw),
+  "rows x",
+  ncol(emissions_raw),
+  "columns\n"
+)
+cat(
+  "Year range:",
+  min(emissions_raw$year, na.rm = TRUE),
+  "-",
+  max(emissions_raw$year, na.rm = TRUE),
+  "\n"
+)
+```
+
+### 2.3 Define Regions
+
+We aggregate countries into the same five regions as the original Carbon Brief chart:
+**China**, **United States (USA)**, **European Union (EU-27)**, **India**, and **Rest of World**.
+
+```{r}
+#| label: define-regions
+col_names <- names(emissions_raw)
+
+# Key country columns (verified from the dataset's column names after skip = 11)
+china_col <- "China"
+india_col <- "India"
+usa_col <- "USA"
+world_col <- "World"
+
+# EU-27 member states
+eu27_countries <- c(
+  "Austria",
+  "Belgium",
+  "Bulgaria",
+  "Croatia",
+  "Cyprus",
+  "Czechia",
+  "Denmark",
+  "Estonia",
+  "Finland",
+  "France",
+  "Germany",
+  "Greece",
+  "Hungary",
+  "Ireland",
+  "Italy",
+  "Latvia",
+  "Lithuania",
+  "Luxembourg",
+  "Malta",
+  "Netherlands",
+  "Poland",
+  "Portugal",
+  "Romania",
+  "Slovakia",
+  "Slovenia",
+  "Spain",
+  "Sweden"
+)
+
+# Match EU-27 columns in dataset
+eu27_cols <- eu27_countries[eu27_countries %in% col_names]
+
+cat("EU-27 columns found:", length(eu27_cols), "of 27\n")
+if (length(eu27_cols) < 27) {
+  cat("Missing:", setdiff(eu27_countries, eu27_cols), "\n")
+}
+```
+
+### 2.4 Clean and Aggregate
+
+```{r}
+#| label: clean-aggregate
+# Keep only rows with valid numeric years
+emissions_clean <- emissions_raw |>
+  filter(!is.na(year)) |>
+  mutate(year = as.numeric(year)) |>
+  filter(!is.na(year))
+
+# Conversion factor: MtC/yr -> GtCO2/yr
+MTC_TO_GTCO2 <- 3.664 / 1000
+
+# Aggregate regions
+emissions_regions <- emissions_clean |>
+  rowwise() |>
+  mutate(
+    china_gtco2 = ifelse(
+      !is.na(.data[[china_col]]),
+      as.numeric(.data[[china_col]]) * MTC_TO_GTCO2,
+      0
+    ),
+    india_gtco2 = ifelse(
+      !is.na(.data[[india_col]]),
+      as.numeric(.data[[india_col]]) * MTC_TO_GTCO2,
+      0
+    ),
+    usa_gtco2 = ifelse(
+      !is.na(.data[[usa_col]]),
+      as.numeric(.data[[usa_col]]) * MTC_TO_GTCO2,
+      0
+    ),
+    world_gtco2 = ifelse(
+      !is.na(.data[[world_col]]),
+      as.numeric(.data[[world_col]]) * MTC_TO_GTCO2,
+      0
+    ),
+    eu27_gtco2 = sum(
+      across(all_of(eu27_cols), ~ ifelse(is.na(.x), 0, as.numeric(.x))),
+      na.rm = TRUE
+    ) *
+      MTC_TO_GTCO2
+  ) |>
+  ungroup() |>
+  mutate(
+    rest_of_world_gtco2 = world_gtco2 -
+      china_gtco2 -
+      india_gtco2 -
+      usa_gtco2 -
+      eu27_gtco2
+  ) |>
+  select(
+    year,
+    china_gtco2,
+    india_gtco2,
+    usa_gtco2,
+    eu27_gtco2,
+    rest_of_world_gtco2,
+    world_gtco2
+  ) |>
+  filter(year >= 1959, year <= 2023)
+
+cat("Cleaned dataset:", nrow(emissions_regions), "rows (1959-2023)\n")
+```
+
+### 2.5 Pivot to Long Format
+
+```{r}
+#| label: pivot-long
+emissions_long <- emissions_regions |>
+  pivot_longer(
+    cols = c(
+      china_gtco2,
+      india_gtco2,
+      usa_gtco2,
+      eu27_gtco2,
+      rest_of_world_gtco2
+    ),
+    names_to = "region",
+    values_to = "emissions_gtco2"
+  ) |>
+  mutate(
+    region = case_match(
+      region,
+      "china_gtco2" ~ "China",
+      "india_gtco2" ~ "India",
+      "usa_gtco2" ~ "United States",
+      "eu27_gtco2" ~ "European Union",
+      "rest_of_world_gtco2" ~ "Rest of World"
+    ),
+    region = factor(
+      region,
+      levels = c(
+        "China",
+        "United States",
+        "European Union",
+        "India",
+        "Rest of World"
+      )
+    ),
+    pct_share = emissions_gtco2 / world_gtco2 * 100
+  )
+```
+
+### 2.6 Save Cleaned Data
+
+```{r}
+#| label: save-cleaned
+write_csv(emissions_regions, "data/cleaned/emissions_wide.csv")
+write_csv(emissions_long, "data/cleaned/emissions_by_region.csv")
+
+cat("Saved: data/cleaned/emissions_wide.csv\n")
+cat("Saved: data/cleaned/emissions_by_region.csv\n")
+```
+
+### 2.7 Quick Validation
+
+```{r}
+#| label: validation
+# Sanity check: 2023 global total should be ~37-38 GtCO2
+total_2023 <- emissions_regions |>
+  filter(year == 2023) |>
+  pull(world_gtco2)
+cat(
+  "2023 global total:",
+  round(total_2023, 2),
+  "GtCO2",
+  "(expected ~37.4 GtCO2)\n\n"
+)
+
+# Show latest year per region
+emissions_long |>
+  filter(year == 2023) |>
+  arrange(desc(emissions_gtco2)) |>
+  mutate(
+    emissions_gtco2 = round(emissions_gtco2, 2),
+    pct_share = round(pct_share, 1)
+  ) |>
+  select(region, emissions_gtco2, pct_share) |>
+  knitr::kable(
+    col.names = c("Region", "GtCO2 (2023)", "% of Global"),
+    caption = "2023 emissions by region"
+  )
+```
+
+**Cleaning steps summary:**
+
+1. Imported "Territorial Emissions" sheet, skipping 11 metadata rows
+2. Identified country columns: China, India, USA, and 27 EU member states
+3. Converted units from MtC/yr to GtCO₂/yr (×3.664 / 1000)
+4. Summed 27 EU member states into a single EU-27 aggregate
+5. Computed Rest of World = World total − (China + India + USA + EU-27)
+6. Filtered to 1959–2023 to match the original chart timespan
+7. Pivoted to long format and computed percentage shares
+
+## 3. Draft Design Brief
+
+::: {.callout-note appearance="simple" icon=false}
+## Design Brief
+
+This redesign targets **general-public readers of climate news** who want to compare which
+countries drive CO₂ emissions growth. The goal is to show both **total** and **per-capita
+emissions** so readers can assess national responsibility on a fair basis.
+
+**Main revisions:**
+
+- **Sparkline summary table** for at-a-glance trend comparison across regions
+- **Faceted line charts** (small multiples) replacing the stacked area chart so each region is
+  readable from a shared zero baseline
+- **Per-capita panel** alongside total emissions for population-adjusted context
+- **Direct labels** (`ggrepel`) to eliminate legend look-up
+- **Event annotations** (Paris Agreement, COVID-19) connecting trends to real-world context
+- **% share view** instead of relying on stacked areas for part-to-whole comparison
+- **Okabe–Ito colour palette** for colorblind accessibility
+:::
+
+## 4. Planned Design Direction
+
+Our redesign replaces the original Carbon Brief stacked area chart with a multi-view layout.
+The main panel will be a set of **faceted line charts** (small multiples)—one per region—so
+that every region's trend is readable from a common zero baseline without the mental
+subtraction that stacked areas require. Alongside this, we plan a **sparkline summary table**
+(as suggested during the Week 5 feedback) that pairs miniature trend lines with key numbers
+(latest GtCO₂, % share, 5-year % change) for quick cross-region comparison. A **percentage
+share line chart** will show how each region's contribution has shifted over 65 years,
+addressing the feedback that "Rest of World" could be represented as a proportion rather than
+an absolute area.
+
+We also intend to add a **per-capita emissions panel** using UN World Population Prospects
+data, which we will integrate before Week 11. This addresses our proposal's critique that the
+original chart overstates China's responsibility by showing only absolute totals. One open
+question for the instructors: should the per-capita panel appear as a separate faceted chart
+beside the total-emissions chart, or would an inset/sidebar layout work better within the
+poster's 16:9 format?

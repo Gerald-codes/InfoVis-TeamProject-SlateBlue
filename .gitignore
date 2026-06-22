@@ -1,0 +1,21 @@
+# R / RStudio
+.Rproj.user/
+.Rhistory
+.RData
+.Ruserdata
+*.Rproj
+
+# Quarto
+_freeze/
+_site/
+.quarto/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Output (regenerable)
+*_files/
+
+/.quarto/
+**/*.quarto_ipynb

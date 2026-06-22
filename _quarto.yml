@@ -1,0 +1,6 @@
+project:
+  title: "SlateBlue - CO2 Emissions Visualization Redesign"
+  type: default
+
+execute:
+  freeze: auto
