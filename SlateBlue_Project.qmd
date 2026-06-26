@@ -119,56 +119,26 @@ emissions_clean <- emissions_raw |>
   mutate(year = as.numeric(year)) |>
   filter(!is.na(year))
 
-# EU27 member states (as listed in the Regions sheet of the dataset)
-eu27_countries <- c(
-  "Austria",
-  "Belgium",
-  "Bulgaria",
-  "Croatia",
-  "Cyprus",
-  "Czechia",
-  "Denmark",
-  "Estonia",
-  "Finland",
-  "France",
-  "Germany",
-  "Greece",
-  "Hungary",
-  "Ireland",
-  "Italy",
-  "Latvia",
-  "Lithuania",
-  "Luxembourg",
-  "Malta",
-  "Netherlands",
-  "Poland",
-  "Portugal",
-  "Romania",
-  "Slovakia",
-  "Slovenia",
-  "Spain",
-  "Sweden"
+# Key country columns
+col_names <- names(emissions_clean)
+china_col <- "China"
+india_col <- "India"
+usa_col   <- "USA"
+world_col <- "World"
+
+# Read EU-27 member states from the Regions sheet of the dataset
+regions_sheet <- read_excel(
+  "data/raw/National_Fossil_Carbon_Emissions_2024v1.0-1.xlsx",
+  sheet = "Regions",
+  col_names = c("region_name", "countries")
 )
 
-# Find matching column names (case-insensitive)
-col_names <- names(emissions_clean)
+eu27_string <- regions_sheet |>
+  filter(region_name == "EU27") |>
+  pull(countries)
 
-find_col <- function(pattern) {
-  idx <- grep(pattern, col_names, ignore.case = TRUE)
-  if (length(idx) > 0) col_names[idx[1]] else NA
-}
-
-china_col <- find_col("^China$")
-india_col <- find_col("^India$")
-usa_col <- find_col("^USA$")
-world_col <- find_col("^World$")
-
-# Find EU27 columns
-eu27_cols <- sapply(eu27_countries, function(country) {
-  idx <- grep(paste0("^", country, "$"), col_names, ignore.case = TRUE)
-  if (length(idx) > 0) col_names[idx[1]] else NA
-})
-eu27_cols <- eu27_cols[!is.na(eu27_cols)]
+eu27_countries <- str_trim(str_split(eu27_string, ",")[[1]])
+eu27_cols <- eu27_countries[eu27_countries %in% col_names]
 
 cat("China column:", china_col, "\n")
 cat("India column:", india_col, "\n")

@@ -10,29 +10,54 @@ format:
     code-fold: true
     code-tools: true
     embed-resources: true
-execute:
-  warning: false
-  message: false
+    execute:
+      warning: false
+      message: false
 ---
 
 ## 1. Data Source Description
+
+### 1.1 Fossil Carbon Emissions Data
 
 | | |
 |---|---|
 | **Dataset** | National Fossil Carbon Emissions 2024 v1.0 |
 | **Source** | Global Carbon Project (GCB 2024) |
-| **URL** | <https://globalcarbonbudget.org/gcb-2024/> |
+| **Dataset URL** | <https://globalcarbonbudget.org/gcb-2024/> |
+| **News article** | <https://www.carbonbrief.org/analysis-global-co2-emissions-will-reach-new-high-in-2024-despite-slower-growth/> |
 | **File** | `National_Fossil_Carbon_Emissions_2024v1.0-1.xlsx` |
 
-The dataset records annual fossil CO₂ emissions at the country level, covering approximately
-250 countries from 1850 to 2023. Values are reported in **million tonnes of carbon per year
-(MtC/yr)**. We convert to **billion tonnes of CO₂ per year (GtCO₂/yr)** using the factor
-1 MtC = 3.664 MtCO₂ (as documented in the dataset).
+The original visualization appeared in a Carbon Brief article published in November 2024,
+which projected that 2024 global fossil CO₂ emissions would reach a record 37.4 GtCO₂.
+The underlying dataset contains **confirmed figures from 1850 to 2023** only — the 2024
+value shown in the article was a preliminary estimate, not part of the dataset. Our
+redesign therefore covers the confirmed range of 1959–2023.
+
+Values are reported in **million tonnes of carbon per year (MtC/yr)**. We convert to
+**billion tonnes of CO₂ per year (GtCO₂/yr)** using the factor 1 MtC = 3.664 MtCO₂
+(as documented in the dataset).
 
 We use the **"Territorial Emissions"** sheet, which records emissions produced within each
 country's borders (excluding land-use change and consumption-based transfers).
 
 The raw Excel file is included in `data/raw/` and the cleaned CSV outputs are in `data/cleaned/`.
+
+### 1.2 Population Data
+
+| | |
+|---|---|
+| **Dataset** | World Development Indicators — Total Population |
+| **Source** | World Bank, based on United Nations World Population Prospects |
+| **URL** | <https://data.worldbank.org/indicator/SP.POP.TOTL> |
+| **File** | `API_SP.POP.TOTL_DS2_en_excel_v2_417154.xls` |
+
+This dataset provides annual total population by country from 1960 to 2023. It will be used
+to compute **per-capita CO₂ emissions** (tonnes CO₂ per person) for each region, addressing
+the critique that the original chart shows only absolute totals and overstates the
+responsibility of high-population countries like China.
+
+The dataset includes a pre-aggregated "European Union" row, which we use directly instead
+of summing individual EU member states.
 
 ## 2. Data Import and Cleaning Pipeline
 
@@ -46,6 +71,11 @@ library(scales)
 ```
 
 ### 2.2 Import Raw Data
+
+The emissions Excel file has several header rows with metadata (citation info, unit
+descriptions, notes on methodology) before the actual data begins. We skip the first
+11 rows to land directly on the data, where each row is a year and each column is a
+country.
 
 ```{r}
 #| label: import-raw
@@ -76,8 +106,12 @@ cat(
 
 ### 2.3 Define Regions
 
-We aggregate countries into the same five regions as the original Carbon Brief chart:
+To match the original Carbon Brief chart, we group the ~250 countries into five regions:
 **China**, **United States (USA)**, **European Union (EU-27)**, **India**, and **Rest of World**.
+China, India, and the US each have their own column in the dataset. For the EU-27, rather
+than hardcoding the 27 member states, we read them directly from the dataset's own
+"Regions" sheet, thus if the dataset ever updates its EU membership list, our code
+picks it up automatically.
 
 ```{r}
 #| label: define-regions
@@ -89,47 +123,44 @@ india_col <- "India"
 usa_col <- "USA"
 world_col <- "World"
 
-# EU-27 member states
-eu27_countries <- c(
-  "Austria",
-  "Belgium",
-  "Bulgaria",
-  "Croatia",
-  "Cyprus",
-  "Czechia",
-  "Denmark",
-  "Estonia",
-  "Finland",
-  "France",
-  "Germany",
-  "Greece",
-  "Hungary",
-  "Ireland",
-  "Italy",
-  "Latvia",
-  "Lithuania",
-  "Luxembourg",
-  "Malta",
-  "Netherlands",
-  "Poland",
-  "Portugal",
-  "Romania",
-  "Slovakia",
-  "Slovenia",
-  "Spain",
-  "Sweden"
+# Read EU-27 member states from the Regions sheet of the dataset
+regions_sheet <- read_excel(
+  "data/raw/National_Fossil_Carbon_Emissions_2024v1.0-1.xlsx",
+  sheet = "Regions",
+  col_names = c("region_name", "countries")
 )
 
-# Match EU-27 columns in dataset
+eu27_string <- regions_sheet |>
+  filter(region_name == "EU27") |>
+  pull(countries)
+
+eu27_countries <- str_trim(str_split(eu27_string, ",")[[1]])
+
+cat("EU-27 countries from Regions sheet:", length(eu27_countries), "\n")
+
+# Match EU-27 columns in the Territorial Emissions data
 eu27_cols <- eu27_countries[eu27_countries %in% col_names]
 
-cat("EU-27 columns found:", length(eu27_cols), "of 27\n")
-if (length(eu27_cols) < 27) {
+cat(
+  "EU-27 columns matched:",
+  length(eu27_cols),
+  "of",
+  length(eu27_countries),
+  "\n"
+)
+if (length(eu27_cols) < length(eu27_countries)) {
   cat("Missing:", setdiff(eu27_countries, eu27_cols), "\n")
 }
 ```
 
 ### 2.4 Clean and Aggregate
+
+The raw data is in MtC/yr (million tonnes of carbon), but climate reporting typically
+uses GtCO₂/yr (billion tonnes of CO₂). We apply the conversion factor documented in the
+dataset itself: multiply by 3.664 to convert carbon to CO₂, then divide by 1000 to go
+from million to billion tonnes. "Rest of World" is not a column in the dataset so we
+compute it by subtracting the four named regions from the World total, which ensures all
+emissions are accounted for.
 
 ```{r}
 #| label: clean-aggregate
@@ -196,6 +227,11 @@ cat("Cleaned dataset:", nrow(emissions_regions), "rows (1959-2023)\n")
 
 ### 2.5 Pivot to Long Format
 
+The wide format (one column per region) is useful for computation, but for plotting with
+`ggplot2` we need a long format where each row represents one region in one year. We also
+compute each region's percentage share of the global total at this stage, since we plan
+to include a % share chart in our redesign.
+
 ```{r}
 #| label: pivot-long
 emissions_long <- emissions_regions |>
@@ -244,11 +280,130 @@ cat("Saved: data/cleaned/emissions_wide.csv\n")
 cat("Saved: data/cleaned/emissions_by_region.csv\n")
 ```
 
-### 2.7 Quick Validation
+### 2.7 Import Population Data
+
+One of our main critiques of the original chart is that it only shows absolute emissions,
+which makes China look like the biggest contributor by far. But China also has the largest
+population, and we believe if you look at emissions per person, the picture can changes significantly.
+To build a per-capita view, we need population data for each region, which we get the data from
+the World Bank.
+
+```{r}
+#| label: import-population
+pop_raw <- read_excel(
+  "data/raw/API_SP.POP.TOTL_DS2_en_excel_v2_417154.xls",
+  sheet = "Data",
+  skip = 3
+)
+
+cat("Population dataset:", nrow(pop_raw), "rows x", ncol(pop_raw), "columns\n")
+```
+
+### 2.8 Clean and Merge Population Data
+
+Conveniently, the World Bank dataset already has pre-aggregated rows for "China", "India",
+"United States", "European Union", and "World", so we do not need to sum individual
+countries ourselves. We compute "Rest of World" population by subtracting the four named
+regions from the World total, the same approach we used for emissions.
+
+```{r}
+#| label: clean-population
+pop_regions <- pop_raw |>
+  filter(
+    `Country Name` %in%
+      c(
+        "China",
+        "India",
+        "United States",
+        "European Union",
+        "World"
+      )
+  ) |>
+  select(`Country Name`, matches("^\\d{4}$")) |>
+  pivot_longer(
+    cols = -`Country Name`,
+    names_to = "year",
+    values_to = "population"
+  ) |>
+  mutate(year = as.numeric(year)) |>
+  filter(year >= 1960, year <= 2023) |>
+  rename(country = `Country Name`)
+
+# Map World Bank names to our region names and compute Rest of World
+pop_wide <- pop_regions |>
+  pivot_wider(names_from = country, values_from = population) |>
+  mutate(
+    `Rest of World` = World - China - India - `United States` - `European Union`
+  ) |>
+  select(-World) |>
+  pivot_longer(
+    cols = -year,
+    names_to = "region",
+    values_to = "population"
+  )
+
+cat("Population data:", nrow(pop_wide), "rows\n")
+cat("Year range:", min(pop_wide$year), "-", max(pop_wide$year), "\n")
+```
+
+### 2.9 Compute Per-Capita Emissions
+
+We join the emissions and population data by region and year, then divide total emissions
+by population to get tonnes of CO₂ per person. Note that our emissions data starts at
+1959, but the World Bank population data only starts at 1960, so the merged dataset begins
+at 1960 (we lose just one year). The per-capita figures confirm what we expected: the US
+emits far more per person than China, despite China having higher total emissions.
+
+```{r}
+#| label: per-capita
+emissions_percapita <- emissions_long |>
+  inner_join(pop_wide, by = c("region", "year")) |>
+  mutate(
+    # GtCO2 -> tonnes CO2 per person
+    emissions_per_capita = (emissions_gtco2 * 1e9) / population
+  )
+
+cat("Merged dataset:", nrow(emissions_percapita), "rows\n")
+cat(
+  "Year range:",
+  min(emissions_percapita$year),
+  "-",
+  max(emissions_percapita$year),
+  "\n\n"
+)
+
+# Show 2023 per-capita values
+emissions_percapita |>
+  filter(year == 2023) |>
+  arrange(desc(emissions_per_capita)) |>
+  mutate(
+    emissions_per_capita = round(emissions_per_capita, 2),
+    population_m = round(population / 1e6, 0)
+  ) |>
+  select(region, emissions_per_capita, population_m) |>
+  knitr::kable(
+    col.names = c("Region", "tCO2/person (2023)", "Population (millions)"),
+    caption = "Per-capita emissions by region (2023)"
+  )
+```
+
+```{r}
+#| label: save-percapita
+write_csv(emissions_percapita, "data/cleaned/emissions_percapita.csv")
+cat("Saved: data/cleaned/emissions_percapita.csv\n")
+```
+
+### 2.10 Quick Validation
+
+As a sanity check, we verify two things: 
+
+1. Our computed 2023 global total should be around 37.8 GtCO₂ based on the Carbon Brief article on the 2023 confirmed figure
+
+2. The World Bank's pre-aggregated "European Union" population matches the sum of the 27 individual member states, so we know we are using the correct EU definition.
 
 ```{r}
 #| label: validation
-# Sanity check: 2023 global total should be ~37-38 GtCO2
+# --- Check 1: Global emissions total ---
 total_2023 <- emissions_regions |>
   filter(year == 2023) |>
   pull(world_gtco2)
@@ -256,7 +411,62 @@ cat(
   "2023 global total:",
   round(total_2023, 2),
   "GtCO2",
-  "(expected ~37.4 GtCO2)\n\n"
+  "(expected ~37.8 GtCO2)\n\n"
+)
+
+# --- Check 2: EU population aggregation ---
+eu27_pop_names <- c(
+  "Austria",
+  "Belgium",
+  "Bulgaria",
+  "Croatia",
+  "Cyprus",
+  "Czechia",
+  "Denmark",
+  "Estonia",
+  "Finland",
+  "France",
+  "Germany",
+  "Greece",
+  "Hungary",
+  "Ireland",
+  "Italy",
+  "Latvia",
+  "Lithuania",
+  "Luxembourg",
+  "Malta",
+  "Netherlands",
+  "Poland",
+  "Portugal",
+  "Romania",
+  "Slovak Republic",
+  "Slovenia",
+  "Spain",
+  "Sweden"
+)
+
+eu27_pop_sum <- pop_raw |>
+  filter(`Country Name` %in% eu27_pop_names) |>
+  pull(`2023`) |>
+  as.numeric() |>
+  sum(na.rm = TRUE)
+
+eu_pop_agg <- pop_raw |>
+  filter(`Country Name` == "European Union") |>
+  pull(`2023`) |>
+  as.numeric()
+
+cat(
+  "EU population check (2023):\n",
+  " Sum of 27 member states:",
+  format(eu27_pop_sum, big.mark = ","),
+  "\n",
+  " Pre-aggregated EU row:  ",
+  format(eu_pop_agg, big.mark = ","),
+  "\n",
+  " Match:",
+  eu27_pop_sum == eu_pop_agg,
+  "\n"
 )
 
 # Show latest year per region
@@ -274,20 +484,7 @@ emissions_long |>
   )
 ```
 
-**Cleaning steps summary:**
-
-1. Imported "Territorial Emissions" sheet, skipping 11 metadata rows
-2. Identified country columns: China, India, USA, and 27 EU member states
-3. Converted units from MtC/yr to GtCO₂/yr (×3.664 / 1000)
-4. Summed 27 EU member states into a single EU-27 aggregate
-5. Computed Rest of World = World total − (China + India + USA + EU-27)
-6. Filtered to 1959–2023 to match the original chart timespan
-7. Pivoted to long format and computed percentage shares
-
-## 3. Draft Design Brief
-
-::: {.callout-note appearance="simple" icon=false}
-## Design Brief
+## 3. Design Brief
 
 This redesign targets **general-public readers of climate news** who want to compare which
 countries drive CO₂ emissions growth. The goal is to show both **total** and **per-capita
@@ -295,31 +492,250 @@ emissions** so readers can assess national responsibility on a fair basis.
 
 **Main revisions:**
 
-- **Sparkline summary table** for at-a-glance trend comparison across regions
 - **Faceted line charts** (small multiples) replacing the stacked area chart so each region is
   readable from a shared zero baseline
+- **Sparkline summary table** combining trend lines, total emissions, per-capita values,
+  and % change for at-a-glance comparison
 - **Per-capita panel** alongside total emissions for population-adjusted context
-- **Direct labels** (`ggrepel`) to eliminate legend look-up
+- **Distinct Okabe–Ito colours** replacing the original's gradient blues, since regions are
+  categorical data
+- **Right-aligned legend** ordered to match the visual layout
+- **Direct labels** (`ggrepel`) for end-of-line annotation
 - **Event annotations** (Paris Agreement, COVID-19) connecting trends to real-world context
-- **% share view** instead of relying on stacked areas for part-to-whole comparison
-- **Okabe–Ito colour palette** for colorblind accessibility
-:::
 
 ## 4. Planned Design Direction
 
-Our redesign replaces the original Carbon Brief stacked area chart with a multi-view layout.
-The main panel will be a set of **faceted line charts** (small multiples)—one per region—so
-that every region's trend is readable from a common zero baseline without the mental
-subtraction that stacked areas require. Alongside this, we plan a **sparkline summary table**
-(as suggested during the Week 5 feedback) that pairs miniature trend lines with key numbers
-(latest GtCO₂, % share, 5-year % change) for quick cross-region comparison. A **percentage
-share line chart** will show how each region's contribution has shifted over 65 years,
-addressing the feedback that "Rest of World" could be represented as a proportion rather than
-an absolute area.
+The biggest problem with the original chart is that it uses a stacked area format, which
+means only China (the bottom layer) is actually readable while for every other region, you have to mentally subtract between two wobbly lines to figure out the value, which is
+really hard to do accurately. So for our redesign, we are replacing it completely.
 
-We also intend to add a **per-capita emissions panel** using UN World Population Prospects
-data, which we will integrate before Week 11. This addresses our proposal's critique that the
-original chart overstates China's responsibility by showing only absolute totals. One open
-question for the instructors: should the per-capita panel appear as a separate faceted chart
-beside the total-emissions chart, or would an inset/sidebar layout work better within the
-poster's 16:9 format?
+From the Week 5 feedback, we took away a few key points that are shaping our design:
+
+1. **Use distinct colours, not a gradient.** The original uses different shades of blue
+   for all regions, but since these are categorical (not ordered), they should be clearly
+   distinguishable. We switched to the Okabe–Ito palette, which is also colorblind-friendly.
+
+2. **Sparkline summary table.** This was suggested during the feedback and we think it is
+   a strong fit for our data. It lets us show the trend, latest total emissions, per-capita
+   emissions, % share, and % change for each region all in one compact table. This is
+   likely going to be the centrepiece of our poster.
+
+3. **Show per-capita data.** The original chart only shows total emissions, which makes
+   China look like the biggest contributor by far. But when we calculated per-capita
+   figures using World Bank population data, we found that the US emits about
+   14 tCO₂/person compared to China’s 8 tCO₂/person. We want
+   our redesign to show both views so readers can make fairer comparisons.
+
+4. **Show % share instead of stacking.** Rather than using a stacked area for “Rest of
+   World”, we plan to show each region’s share as a percentage line chart, which makes
+   proportional changes much easier to read.
+
+We have drafted a few different chart options (see Section 5 below) and would appreciate
+feedback on which combination would work best on the poster alongside the sparkline table.
+
+## 5. Draft Visualizations (Work in Progress)
+
+The drafts below show that our data pipeline works end-to-end and give a sense of
+where we are heading. These are not final — we will refine the styling and layout
+before the poster.
+
+### 5.1 Sparkline Summary Table (Main Visualization)
+
+This will be the centrepiece of our poster. It combines trend lines, total emissions,
+per-capita values, % share, and % change into a single compact table — making it easy
+to compare all five regions at a glance.
+
+```{r}
+#| label: fig-draft-sparkline
+
+library(gt)
+library(gtExtras)
+
+spark_data <- emissions_percapita |>
+  group_by(region) |>
+  summarise(
+    trend = list(emissions_gtco2),
+    latest = round(last(emissions_gtco2), 2),
+    per_capita = round(last(emissions_per_capita), 1),
+    share = paste0(round(last(pct_share), 1), "%"),
+    change_5yr = round(
+      (last(emissions_gtco2) - nth(emissions_gtco2, -5)) /
+        nth(emissions_gtco2, -5) *
+        100,
+      1
+    ),
+    .groups = "drop"
+  ) |>
+  arrange(desc(latest))
+
+spark_data |>
+  gt() |>
+  gt_plt_sparkline(
+    trend,
+    same_limit = FALSE,
+    type = "shaded",
+    fig_dim = c(15, 40),
+    palette = c("black", "black", "grey80", "grey80", "grey90")
+  ) |>
+  cols_label(
+    region = "Region",
+    trend = "Trend (1960–2023)",
+    latest = "GtCO2 (2023)",
+    per_capita = "tCO2/person",
+    share = "% Share",
+    change_5yr = "5yr Change (%)"
+  ) |>
+  tab_header(
+    title = "Fossil CO2 Emissions by Region",
+    subtitle = "Summary with embedded sparklines (1960–2023)"
+  ) |>
+  fmt_number(columns = latest, decimals = 2) |>
+  fmt_number(columns = per_capita, decimals = 1) |>
+  fmt_number(columns = change_5yr, decimals = 1, force_sign = TRUE) |>
+  tab_source_note("Data: Global Carbon Project (GCB 2024) & World Bank") |>
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_column_labels()
+  )
+```
+
+### 5.2 Per-Capita Emissions (Supporting Chart)
+
+This is the chart we plan to pair with the sparkline table on the poster. It tells a
+very different story from the original — the US has consistently been the highest
+per-capita emitter, even though China leads in total emissions. This crossover is hard
+to see in the sparkline table alone since each region is on a separate row.
+
+```{r}
+#| label: fig-draft-percapita
+#| fig-cap: "Draft: Per-capita fossil CO2 emissions (tonnes CO2/person), 1960–2023."
+#| fig-width: 10
+#| fig-height: 5
+
+library(ggrepel)
+
+region_colors <- c(
+  "China" = "#E69F00",
+  "United States" = "#56B4E9",
+  "European Union" = "#009E73",
+  "India" = "#D55E00",
+  "Rest of World" = "#999999"
+)
+
+label_pc <- emissions_percapita |>
+  filter(year == max(year))
+
+ggplot(
+  emissions_percapita,
+  aes(x = year, y = emissions_per_capita, color = region)
+) +
+  geom_line(linewidth = 1) +
+  geom_text_repel(
+    data = label_pc,
+    aes(label = paste0(region, "\n", round(emissions_per_capita, 1), " t")),
+    nudge_x = 3,
+    size = 3,
+    direction = "y",
+    segment.color = "grey70"
+  ) +
+  scale_color_manual(values = region_colors) +
+  scale_x_continuous(breaks = seq(1960, 2020, 10)) +
+  labs(
+    title = "Per-Capita Fossil CO2 Emissions by Region, 1960–2023",
+    subtitle = "The US emits far more per person than China, despite lower total emissions",
+    x = NULL,
+    y = "Tonnes CO2 / person"
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(
+    plot.title = element_text(face = "bold", size = 13),
+    plot.subtitle = element_text(color = "grey40"),
+    panel.grid.minor = element_blank(),
+    legend.position = "none"
+  )
+```
+
+### 5.3 Other Draft Explorations
+
+The charts below are additional views we explored. We are not planning to include these
+on the poster, but they helped us understand the data and may be useful as supplementary
+material.
+
+#### Total Emissions by Region (Faceted Line Chart)
+
+```{r}
+#| label: fig-draft-faceted
+#| fig-cap: "Draft: Fossil CO2 emissions by region (GtCO2/yr), 1960–2023."
+#| fig-width: 12
+#| fig-height: 5
+
+label_data <- emissions_long |>
+  filter(year == max(year))
+
+ggplot(emissions_long, aes(x = year, y = emissions_gtco2, color = region)) +
+  geom_line(linewidth = 1) +
+  geom_text_repel(
+    data = label_data,
+    aes(label = paste0(round(emissions_gtco2, 1), " Gt")),
+    nudge_x = 2,
+    size = 3,
+    direction = "y",
+    segment.color = "grey70"
+  ) +
+  facet_wrap(~region, nrow = 1, scales = "free_y") +
+  scale_color_manual(values = region_colors) +
+  scale_x_continuous(breaks = seq(1960, 2020, 20)) +
+  labs(
+    title = "Fossil CO2 Emissions by Region, 1960–2023",
+    subtitle = "Each panel shows one region on its own baseline for accurate trend reading",
+    x = NULL,
+    y = "GtCO2 / year"
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(
+    plot.title = element_text(face = "bold", size = 13),
+    plot.subtitle = element_text(color = "grey40"),
+    strip.text = element_text(face = "bold"),
+    panel.grid.minor = element_blank(),
+    legend.position = "none"
+  )
+```
+
+#### Percentage Share of Global Emissions
+
+```{r}
+#| label: fig-draft-pctshare
+#| fig-cap: "Draft: Each region's share of global fossil CO2 emissions (%), 1960–2023."
+#| fig-width: 10
+#| fig-height: 5
+
+label_pct <- emissions_long |>
+  filter(year == max(year))
+
+ggplot(emissions_long, aes(x = year, y = pct_share, color = region)) +
+  geom_line(linewidth = 1) +
+  geom_text_repel(
+    data = label_pct,
+    aes(label = paste0(region, "\n", round(pct_share, 1), "%")),
+    nudge_x = 3,
+    size = 3,
+    direction = "y",
+    segment.color = "grey70"
+  ) +
+  scale_color_manual(values = region_colors) +
+  scale_x_continuous(breaks = seq(1960, 2020, 10)) +
+  scale_y_continuous(labels = label_percent(scale = 1)) +
+  labs(
+    title = "Share of Global Fossil CO2 Emissions by Region",
+    subtitle = "China's share has grown rapidly since 2000, while the US and EU have declined",
+    x = NULL,
+    y = "% of global emissions"
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(
+    plot.title = element_text(face = "bold", size = 13),
+    plot.subtitle = element_text(color = "grey40"),
+    panel.grid.minor = element_blank(),
+    legend.position = "none"
+  )
+```
