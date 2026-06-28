@@ -73,7 +73,7 @@ The original visualization is a stacked area chart from Carbon Brief / Global Ca
 
 The dataset is **National Fossil Carbon Emissions 2024 v1.0** from the Global Carbon Project.
 
-- **Source:** [globalcarbonbudget.org/carbonbudget](https://globalcarbonbudget.org/carbonbudget)
+- **Source:** [globalcarbonbudget.org/gcb-2024](https://globalcarbonbudget.org/gcb-2024)
 - **File:** `National_Fossil_Carbon_Emissions_2024v1.0-1.xlsx`
 - **Sheet used:** "Territorial Emissions"
 - **Units:** Million tonnes of carbon per year (MtC/yr), converted to GtCO2 by multiplying by 3.664 / 1000
@@ -455,6 +455,6 @@ summary_stats |>
 ## 7. References
 
 - Friedlingstein, P., et al. (2024). Global Carbon Budget 2024. *Earth System Science Data*, 16, 1--102. doi:10.5194/essd-16-1-2024
-- Global Carbon Project. (2024). National Fossil Carbon Emissions 2024 v1.0. Retrieved from [globalcarbonbudget.org](https://globalcarbonbudget.org/carbonbudget)
+- Global Carbon Project. (2024). National Fossil Carbon Emissions 2024 v1.0. Retrieved from [globalcarbonbudget.org](https://globalcarbonbudget.org/gcb-2024)
 - Carbon Brief. (2024). Global CO2 emissions from fossil fuels by region, 1959--2024. Retrieved from [carbonbrief.org](https://www.carbonbrief.org)
 - United Nations. (2024). World Population Prospects 2024. Retrieved from [population.un.org/wpp](https://population.un.org/wpp/downloads)
