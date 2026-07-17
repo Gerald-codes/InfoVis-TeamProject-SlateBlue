@@ -29,7 +29,7 @@ format:
 
 The original visualization appeared in a Carbon Brief article published in November 2024,
 which projected that 2024 global fossil CO₂ emissions would reach a record 37.4 GtCO₂.
-The underlying dataset contains **confirmed figures from 1850 to 2023** only — the 2024
+The underlying dataset contains **confirmed figures from 1850 to 2023** only and the 2024
 value shown in the article was a preliminary estimate, not part of the dataset. Our
 redesign therefore covers the confirmed range of 1959–2023.
 
@@ -536,13 +536,13 @@ feedback on which combination would work best on the poster alongside the sparkl
 ## 5. Draft Visualizations (Work in Progress)
 
 The drafts below show that our data pipeline works end-to-end and give a sense of
-where we are heading. These are not final — we will refine the styling and layout
+where we are heading. These are not final, we will refine the styling and layout
 before the poster.
 
 ### 5.1 Sparkline Summary Table (Main Visualization)
 
 This will be the centrepiece of our poster. It combines trend lines, total emissions,
-per-capita values, % share, and % change into a single compact table — making it easy
+per-capita values, % share, and % change into a single compact table which makes it easy
 to compare all five regions at a glance.
 
 ```{r}
@@ -602,7 +602,7 @@ spark_data |>
 ### 5.2 Per-Capita Emissions (Supporting Chart)
 
 This is the chart we plan to pair with the sparkline table on the poster. It tells a
-very different story from the original — the US has consistently been the highest
+very different story from the original as the US has consistently been the highest
 per-capita emitter, even though China leads in total emissions. This crossover is hard
 to see in the sparkline table alone since each region is on a separate row.
 

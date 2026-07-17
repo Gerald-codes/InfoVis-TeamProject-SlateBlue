@@ -1,6 +1,6 @@
 ---
 title: "Redesigning Global Fossil CO2 Emissions Visualization"
-subtitle: "CSC3107 Information Visualization -- Team SlateBlue"
+subtitle: "CSC3107 Information Visualization"
 author: "Team SlateBlue"
 date: today
 format:
@@ -20,441 +20,662 @@ execute:
 
 ## 1. Introduction
 
-This project redesigns a [stacked area chart of global fossil CO2 emissions](https://globalcarbonbudget.org/gcb-2024/) published by Carbon Brief using data from the Global Carbon Project (GCB 2024). The original chart shows annual fossil CO2 emissions from 1959--2024 broken down by China, India, the United States, the European Union, and the Rest of the World.
+This project redesigns a stacked area chart of global fossil CO₂ emissions published by Carbon Brief using data from the Global Carbon Project. The original visualization presents annual fossil CO₂ emissions from China, India, the United States, the European Union, and the Rest of the World. In this redesign, we focus on the five highest-emitting countries instead. This allows for a more direct comparison between major emitters and avoids using broad aggregated categories that can hide differences between individual countries.
 
-While the chart effectively communicates the overall upward trend, the stacked area format makes it nearly impossible to compare individual regions---only China (the bottom layer) is directly readable. Our redesign addresses this and other issues identified in our critical analysis.
+Climate change is one of the most important global challenges today, and visualizations like this are often used in news articles to shape public understanding of the issue. While the original chart effectively communicates that global fossil CO₂ emissions have continued to increase, its stacked area design makes it difficult to compare the emission trends of individual regions. In addition, it focuses only on total emissions without considering population size, which can lead readers to overlook differences in emissions on a per-person basis.
 
-## 2. Design Brief
+To address these issues, our redesign uses a compact sparkline summary table that combines historical trends with total emissions, per-capita emissions, percentage share of global emissions and recent changes for each country. This allows readers to compare the five countries more directly while providing additional context beyond absolute emissions.
+
+The original article includes a preliminary estimate for 2024, but the underlying dataset contains confirmed observations only up to 2023. To ensure that our analysis is based on verified data, our redesigned visualizations use the period 1959–2023 for total emissions and 1960–2023 for analyses that require population data.
+
+## 2. Original Visualization
+
+![Original visualization: Global fossil CO2 emissions by region, published by Carbon Brief.](original_visualization/original_chart.png){width=80%}
+
+**Article:** [Carbon Brief (2024)](https://www.carbonbrief.org/analysis-global-co2-emissions-will-reach-new-high-in-2024-despite-slower-growth/)
+
+**Data source:** [Global Carbon Project](https://globalcarbonbudget.org/gcb-2024/)
+
+### 2.1 Strengths
+
+- The visualization presents a long historical record (1959–2024), allowing readers to observe long-term structural changes such as China's rapid growth after 2000, the decline in emissions from the United States and European Union, and the temporary COVID-19 dip in 2020.
+- A zero baseline is appropriate for showing absolute emissions in a stacked area chart, allowing the overall magnitude of global emissions to be interpreted accurately.
+- The stacked area effectively communicates the overall increase in global fossil CO₂ emissions over time.
+
+### 2.2 Weaknesses
+
+- Except for the bottom layer, country values must be estimated by mentally comparing two moving boundaries, making comparisons between countries difficult.
+- Similar blue gradient colours imply an ordered relationship even though the regions are categorical, making the countries harder to distinguish.
+- The legend is separated from the data and its ordering does not match the visual stacking, requiring unnecessary eye movement when identifying countries.
+- The European Union and Rest of World are aggregated categories, so they cannot be compared directly with individual countries on the same basis.
+- The visualization focuses only on total emissions and provides no per-capita context, making it difficult to compare emissions relative to population size.
+
+### 2.3 Proposed Improvements
+
+The redesign replaces the stacked area chart with a compact sparkline summary table, allowing each country’s historical trend to be viewed independently without comparing stacked layers. It focuses on the five highest-emitting countries in 2023 and removes broad aggregated categories such as the European Union and Rest of World. The table also reports total emissions, per-capita emissions, percentage share of global emissions and recent five-year change in a single view. Distinct colourblind-friendly colours make the countries easier to distinguish.
+
+## 3. Design Brief
 
 ::: {.callout-note appearance="simple" icon=false}
 ## Design Brief
 
-This redesign targets general-public readers of climate news who want to understand which countries drive CO2 emissions growth.
-The goal is to compare both **total emissions** and **per-capita emissions** across regions so readers can assess national responsibility on a fair basis.
+This redesign targets **general readers of climate news** who want to understand and compare how the largest emitting countries contribute to global CO₂ emissions. The goal is to show both **total** and **per-capita emissions**, so readers can compare national contributions from more than one perspective. The redesign focuses on the five highest-emitting countries in 2023, which together account for about 60% of global fossil CO₂ emissions while keeping the comparison manageable.
 
 **Main revisions:**
 
-- **Sparkline summary table** for at-a-glance comparison of trends, latest values, and % change across all regions
-- **Faceted line charts** (small multiples) to replace the stacked area chart, giving each region a shared zero baseline
-- **Per-capita panel** alongside total emissions to provide population-adjusted context
-- **Direct labels** with `ggrepel` to eliminate legend look-up
-- **Event annotations** (Paris Agreement, COVID-19 dip) to connect trends to real-world context
-- **% share representation** instead of a separate "Rest of World" area to reduce visual clutter
-- **Colorblind-friendly palette** (Okabe--Ito) for accessibility
+- **Focus on the five highest-emitting countries in 2023** to support direct country-to-country comparisons
+- **Sparkline summary table** replacing the stacked area chart so each country's historical trend can be viewed independently
+- **Integrated summary metrics** showing total emissions, per-capita emissions, percentage share, and five-year change alongside each sparkline
+- **Distinct Okabe–Ito colours** replacing the original gradient blues because the countries are nominal categories
+- **Direct country labels** in the first column, removing the need for a separate legend
+
 :::
-
-## 3. Original Visualization
-
-The original visualization is a stacked area chart from Carbon Brief / Global Carbon Project:
-
-![Original visualization: Global CO2 emissions from fossil fuels by region, 1959--2024 (Source: Carbon Brief / Global Carbon Project)](original_visualization/original_chart.png){width=80%}
-
-**Source:** Carbon Brief, "Global Carbon Budget 2024", [globalcarbonbudget.org/gcb-2024/](https://globalcarbonbudget.org/gcb-2024/)
-
-### Critique of Original
-
-**Strengths:**
-
-- Long 65-year timespan reveals structural shifts (China's post-2000 surge, EU decline, COVID-19 dip)
-- Zero-based y-axis is correct for absolute quantities
-- Successfully conveys the core message of record-high global emissions
-
-**Weaknesses:**
-
-- Stacked area chart requires mental subtraction to read any region except the bottom layer (China)
-- Similar blue shades reduce separability between regions, especially for colorblind viewers
-- No per-capita context misleads readers about individual-level responsibility
-- Legend order does not match visual stacking order
-- No annotations for key events (Paris Agreement 2015, COVID-19 2020)
 
 ## 4. Data Preparation
 
-### 4.1 Data Source
+### 4.1 Fossil Carbon Emissions Data
 
-The dataset is **National Fossil Carbon Emissions 2024 v1.0** from the Global Carbon Project.
+| | |
+|---|---|
+| **Dataset** | National Fossil Carbon Emissions 2024 v1.0 |
+| **Source** | Global Carbon Project (GCB 2024) |
+| **Dataset URL** | <https://globalcarbonbudget.org/gcb-2024/> |
+| **News article** | <https://www.carbonbrief.org/analysis-global-co2-emissions-will-reach-new-high-in-2024-despite-slower-growth/> |
+| **File** | `National_Fossil_Carbon_Emissions_2024v1.0-1.xlsx` |
 
-- **Source:** [globalcarbonbudget.org/gcb-2024](https://globalcarbonbudget.org/gcb-2024)
-- **File:** `National_Fossil_Carbon_Emissions_2024v1.0-1.xlsx`
-- **Sheet used:** "Territorial Emissions"
-- **Units:** Million tonnes of carbon per year (MtC/yr), converted to GtCO2 by multiplying by 3.664 / 1000
-- **Coverage:** Country-level emissions from 1850--2023 (~250 countries)
+The original visualization appeared in a Carbon Brief article published in November 2024,
+which projected that 2024 global fossil CO₂ emissions would reach a record 37.4 GtCO₂.
+The underlying dataset contains **confirmed figures from 1850 to 2023** only and the 2024
+value shown in the article was a preliminary estimate, not part of the dataset. Our
+redesign therefore covers the confirmed range of 1959–2023.
 
-Population data for per-capita calculations is sourced from the **UN World Population Prospects** ([population.un.org/wpp](https://population.un.org/wpp/downloads)).
+Values are reported in **million tonnes of carbon per year (MtC/yr)**. We convert to
+**billion tonnes of CO₂ per year (GtCO₂/yr)** using the factor 1 MtC = 3.664 MtCO₂
+(as documented in the dataset).
 
-### 4.2 Data Import and Cleaning
+We use the **"Territorial Emissions"** sheet, which records emissions produced within each
+country's borders (excluding land-use change and consumption-based transfers).
+
+The raw Excel file is included in `data/raw/` and the cleaned CSV outputs are in `data/cleaned/`.
+
+### 4.2 Population Data
+
+| | |
+|---|---|
+| **Dataset** | World Development Indicators — Total Population |
+| **Source** | World Bank, based on United Nations World Population Prospects |
+| **URL** | <https://data.worldbank.org/indicator/SP.POP.TOTL> |
+| **File** | `API_SP.POP.TOTL_DS2_en_excel_v2_417154.xls` |
+
+This dataset provides annual total population by country from 1960 to 2023. It is used
+to compute **per-capita CO₂ emissions** (tonnes CO₂ per person) for each selected country,
+addressing the critique that the original chart shows only absolute totals. Per-capita
+values provide an additional perspective because countries differ greatly in population size.
+
+### 4.3 Data Import and Cleaning Pipeline
+
+#### 4.3.1 Load Packages
 
 ```{r}
 #| label: load-packages
 library(tidyverse)
 library(readxl)
 library(scales)
-library(ggrepel)
-library(gt)
-library(gtExtras)
 ```
 
+#### 4.3.2 Import Raw Data
+
+The emissions Excel file has several header rows with metadata (citation info, unit
+descriptions, notes on methodology) before the actual data begins. We skip the first
+11 rows to land directly on the data, where each row is a year and each column is a
+country.
+
 ```{r}
-#| label: import-data
+#| label: import-raw
 emissions_raw <- read_excel(
   "data/raw/National_Fossil_Carbon_Emissions_2024v1.0-1.xlsx",
   sheet = "Territorial Emissions",
   skip = 11
 )
 
-head(emissions_raw[, 1:6])
-```
-
-```{r}
-#| label: clean-data
-# The first column is the year, remaining columns are countries
-# Row 1 has uppercase names, row 2 has proper names -- we skipped headers so
-# the first real row of data should start with year 1850
-
-# Rename the year column
+# First column is the year (unnamed in Excel)
 names(emissions_raw)[1] <- "year"
 
-# Remove any header/description rows (keep only numeric years)
+cat(
+  "Raw dataset:",
+  nrow(emissions_raw),
+  "rows x",
+  ncol(emissions_raw),
+  "columns\n"
+)
+cat(
+  "Year range:",
+  min(emissions_raw$year, na.rm = TRUE),
+  "-",
+  max(emissions_raw$year, na.rm = TRUE),
+  "\n"
+)
+```
+
+#### 4.3.3 Identify the Five Highest-Emitting Countries
+
+The dataset contains individual country columns followed by several overlapping aggregate
+groups such as OECD, EU27 and geographic regions. To avoid mixing countries with aggregates,
+we treat all columns before `KP Annex B` as country-level records. We then rank these
+countries using their confirmed 2023 emissions and select the five highest emitters.
+
+```{r}
+#| label: identify-top-five
+# Keep only rows with valid numeric years
 emissions_clean <- emissions_raw |>
   filter(!is.na(year)) |>
   mutate(year = as.numeric(year)) |>
   filter(!is.na(year))
 
-# Key country columns
-col_names <- names(emissions_clean)
-china_col <- "China"
-india_col <- "India"
-usa_col   <- "USA"
-world_col <- "World"
+# Individual country columns appear before the aggregate group columns
+aggregate_start <- match("KP Annex B", names(emissions_clean))
+country_cols <- names(emissions_clean)[2:(aggregate_start - 1)]
 
-# Read EU-27 member states from the Regions sheet of the dataset
-regions_sheet <- read_excel(
-  "data/raw/National_Fossil_Carbon_Emissions_2024v1.0-1.xlsx",
-  sheet = "Regions",
-  col_names = c("region_name", "countries")
-)
-
-eu27_string <- regions_sheet |>
-  filter(region_name == "EU27") |>
-  pull(countries)
-
-eu27_countries <- str_trim(str_split(eu27_string, ",")[[1]])
-eu27_cols <- eu27_countries[eu27_countries %in% col_names]
-
-cat("China column:", china_col, "\n")
-cat("India column:", india_col, "\n")
-cat("USA column:", usa_col, "\n")
-cat("World column:", world_col, "\n")
-cat("EU27 columns found:", length(eu27_cols), "of 27\n")
-```
-
-```{r}
-#| label: aggregate-regions
-# Convert MtC/yr to GtCO2: multiply by 3.664 / 1000
-MTC_TO_GTCO2 <- 3.664 / 1000
-
-emissions_regions <- emissions_clean |>
-  rowwise() |>
-  mutate(
-    china_gtco2 = ifelse(
-      !is.na(.data[[china_col]]),
-      as.numeric(.data[[china_col]]) * MTC_TO_GTCO2,
-      0
-    ),
-    india_gtco2 = ifelse(
-      !is.na(.data[[india_col]]),
-      as.numeric(.data[[india_col]]) * MTC_TO_GTCO2,
-      0
-    ),
-    usa_gtco2 = ifelse(
-      !is.na(.data[[usa_col]]),
-      as.numeric(.data[[usa_col]]) * MTC_TO_GTCO2,
-      0
-    ),
-    world_gtco2 = ifelse(
-      !is.na(.data[[world_col]]),
-      as.numeric(.data[[world_col]]) * MTC_TO_GTCO2,
-      0
-    ),
-    eu27_gtco2 = sum(
-      across(all_of(eu27_cols), ~ ifelse(is.na(.x), 0, as.numeric(.x))),
-      na.rm = TRUE
-    ) *
-      MTC_TO_GTCO2
-  ) |>
-  ungroup() |>
-  mutate(
-    rest_of_world_gtco2 = world_gtco2 -
-      china_gtco2 -
-      india_gtco2 -
-      usa_gtco2 -
-      eu27_gtco2
-  ) |>
-  select(
-    year,
-    china_gtco2,
-    india_gtco2,
-    usa_gtco2,
-    eu27_gtco2,
-    rest_of_world_gtco2,
-    world_gtco2
-  ) |>
-  filter(year >= 1959, year <= 2023)
-
-head(emissions_regions)
-```
-
-```{r}
-#| label: pivot-long
-emissions_long <- emissions_regions |>
+top5_countries <- emissions_clean |>
+  filter(year == 2023) |>
+  select(all_of(country_cols)) |>
   pivot_longer(
-    cols = c(
-      china_gtco2,
-      india_gtco2,
-      usa_gtco2,
-      eu27_gtco2,
-      rest_of_world_gtco2
-    ),
-    names_to = "region",
-    values_to = "emissions_gtco2"
+    cols = everything(),
+    names_to = "dataset_name",
+    values_to = "emissions_mtc"
+  ) |>
+  filter(!is.na(emissions_mtc)) |>
+  slice_max(
+    order_by = emissions_mtc,
+    n = 5,
+    with_ties = FALSE
   ) |>
   mutate(
-    region = case_match(
-      region,
-      "china_gtco2" ~ "China",
-      "india_gtco2" ~ "India",
-      "usa_gtco2" ~ "United States",
-      "eu27_gtco2" ~ "European Union",
-      "rest_of_world_gtco2" ~ "Rest of World"
-    ),
-    region = factor(
-      region,
-      levels = c(
-        "China",
-        "United States",
-        "European Union",
-        "India",
-        "Rest of World"
-      )
+    country = recode(
+      dataset_name,
+      "USA" = "United States"
     )
   )
 
-# Compute % share of global total
-emissions_long <- emissions_long |>
-  mutate(pct_share = emissions_gtco2 / world_gtco2 * 100)
-```
+selected_country_cols <- top5_countries$dataset_name
 
-```{r}
-#| label: compute-pct-change
-# Year-over-year % change for each region
-emissions_long <- emissions_long |>
-  group_by(region) |>
-  arrange(year) |>
-  mutate(
-    pct_change = (emissions_gtco2 - lag(emissions_gtco2)) /
-      lag(emissions_gtco2) *
-      100
+top5_countries |>
+  transmute(
+    Country = country,
+    `2023 emissions (MtC)` = round(emissions_mtc, 1)
   ) |>
-  ungroup()
-```
-
-```{r}
-#| label: save-cleaned-data
-write_csv(emissions_long, "data/cleaned/emissions_by_region.csv")
-write_csv(emissions_regions, "data/cleaned/emissions_wide.csv")
-```
-
-**Data cleaning steps performed:**
-
-1. Imported the "Territorial Emissions" sheet, skipping 11 header/metadata rows
-2. Identified country columns for China (Mainland), India, United States, and EU27 member states
-3. Converted units from MtC/yr to GtCO2 (multiply by 3.664 / 1000)
-4. Aggregated EU27 by summing 27 member state columns
-5. Computed Rest of World as World total minus the four named regions
-6. Filtered to 1959--2023 to match the original chart's timespan
-7. Pivoted to long format and computed % share and year-over-year % change
-
-## 5. Improved Visualization
-
-### 5.1 Colour Palette and Theme
-
-```{r}
-#| label: setup-theme
-# Okabe-Ito colorblind-friendly palette (subset)
-region_colors <- c(
-  "China" = "#E69F00",
-  "United States" = "#56B4E9",
-  "European Union" = "#009E73",
-  "India" = "#D55E00",
-  "Rest of World" = "#999999"
-)
-
-theme_slate <- theme_minimal(base_size = 12) +
-  theme(
-    plot.title = element_text(face = "bold", size = 14),
-    plot.subtitle = element_text(color = "grey40", size = 11),
-    strip.text = element_text(face = "bold", size = 11),
-    panel.grid.minor = element_blank(),
-    legend.position = "none"
+  knitr::kable(
+    caption = "Five highest-emitting countries selected from the 2023 data"
   )
 ```
 
-### 5.2 Faceted Line Chart (Small Multiples) -- Total Emissions
+#### 4.3.4 Clean and Convert Emissions Data
+
+The raw values are reported in MtC/yr (million tonnes of carbon per year). We convert
+them to GtCO₂/yr (billion tonnes of CO₂ per year) using the factor documented in the
+dataset: multiply by 3.664 to convert carbon to CO₂, then divide by 1000 to convert
+million tonnes to billion tonnes.
 
 ```{r}
-#| label: fig-faceted-total
-#| fig-cap: "Fossil CO2 emissions by region (GtCO2/yr), 1959--2023. Each panel shares a common y-axis for direct comparison."
-#| fig-width: 12
-#| fig-height: 6
-# Label positions: latest year value for direct labelling
-label_data <- emissions_long |>
-  filter(year == max(year))
+#| label: clean-convert
+MTC_TO_GTCO2 <- 3.664 / 1000
 
-# Key event annotations
-events <- tibble(
-  year = c(2015, 2020),
-  label = c("Paris\nAgreement", "COVID-19"),
-  y_pos = c(Inf, Inf)
+world_totals <- emissions_clean |>
+  transmute(
+    year,
+    world_gtco2 = as.numeric(.data[["World"]]) * MTC_TO_GTCO2
+  ) |>
+  filter(year >= 1959, year <= 2023)
+
+emissions_long <- emissions_clean |>
+  select(year, all_of(selected_country_cols)) |>
+  pivot_longer(
+    cols = -year,
+    names_to = "dataset_name",
+    values_to = "emissions_mtc"
+  ) |>
+  mutate(
+    country = recode(
+      dataset_name,
+      "USA" = "United States"
+    ),
+    emissions_gtco2 = as.numeric(emissions_mtc) * MTC_TO_GTCO2
+  ) |>
+  select(year, country, emissions_gtco2) |>
+  filter(year >= 1959, year <= 2023) |>
+  left_join(world_totals, by = "year") |>
+  mutate(
+    pct_share = emissions_gtco2 / world_gtco2 * 100,
+    country = factor(
+      country,
+      levels = top5_countries$country
+    )
+  )
+
+emissions_wide <- emissions_long |>
+  select(year, country, emissions_gtco2) |>
+  pivot_wider(
+    names_from = country,
+    values_from = emissions_gtco2
+  )
+
+cat("Selected countries:", paste(top5_countries$country, collapse = ", "), "\n")
+cat("Cleaned dataset:", nrow(emissions_long), "country-year rows\n")
+```
+
+#### 4.3.5 Save Cleaned Emissions Data
+
+```{r}
+#| label: save-cleaned
+write_csv(emissions_wide, "data/cleaned/emissions_wide.csv")
+write_csv(emissions_long, "data/cleaned/emissions_by_country.csv")
+
+cat("Saved: data/cleaned/emissions_wide.csv\n")
+cat("Saved: data/cleaned/emissions_by_country.csv\n")
+```
+
+#### 4.3.6 Import Population Data
+
+The original visualization only shows absolute emissions. However, countries have very
+different population sizes, so total emissions alone do not provide the full picture.
+We therefore use World Bank population data to calculate emissions per person.
+
+```{r}
+#| label: import-population
+pop_raw <- read_excel(
+  "data/raw/API_SP.POP.TOTL_DS2_en_excel_v2_417154.xls",
+  sheet = "Data",
+  skip = 3
 )
 
-ggplot(emissions_long, aes(x = year, y = emissions_gtco2, color = region)) +
-  geom_line(linewidth = 1) +
-  geom_vline(
-    data = events,
-    aes(xintercept = year),
-    linetype = "dashed",
-    color = "grey50",
-    linewidth = 0.4
-  ) +
-  geom_text(
-    data = events,
-    aes(x = year, y = y_pos, label = label),
-    inherit.aes = FALSE,
-    vjust = 1.2,
-    hjust = 0.5,
-    size = 2.8,
-    color = "grey40"
-  ) +
-  geom_text_repel(
-    data = label_data,
-    aes(label = paste0(round(emissions_gtco2, 1), " Gt")),
-    nudge_x = 2,
-    size = 3.2,
-    direction = "y",
-    segment.color = "grey70"
-  ) +
-  facet_wrap(~region, nrow = 1, scales = "free_y") +
-  scale_color_manual(values = region_colors) +
-  scale_x_continuous(breaks = seq(1960, 2020, 20)) +
-  labs(
-    title = "Fossil CO2 Emissions by Region, 1959-2023",
-    subtitle = "Each panel shows one region on its own baseline for accurate trend reading",
-    x = NULL,
-    y = "GtCO2 / year"
-  ) +
-  theme_slate
+cat("Population dataset:", nrow(pop_raw), "rows x", ncol(pop_raw), "columns\n")
 ```
 
-### 5.3 % Share of Global Emissions
+#### 4.3.7 Clean and Merge Population Data
+
+The country names in the two datasets are not completely identical. For example, the
+emissions dataset uses `USA` and `Russia`, while the World Bank uses `United States` and
+`Russian Federation`. A lookup table is used to match these names consistently.
 
 ```{r}
-#| label: fig-pct-share
-#| fig-cap: "Each region's share of global fossil CO2 emissions (%), 1959--2023."
-#| fig-width: 12
-#| fig-height: 5
-label_pct <- emissions_long |>
-  filter(year == max(year))
+#| label: clean-population
+country_lookup <- tibble(
+  dataset_name = c("China", "USA", "India", "Russia", "Japan"),
+  country = c("China", "United States", "India", "Russia", "Japan"),
+  wb_name = c("China", "United States", "India", "Russian Federation", "Japan")
+) |>
+  filter(dataset_name %in% selected_country_cols)
 
-ggplot(emissions_long, aes(x = year, y = pct_share, color = region)) +
-  geom_line(linewidth = 1) +
-  geom_text_repel(
-    data = label_pct,
-    aes(label = paste0(region, "\n", round(pct_share, 1), "%")),
-    nudge_x = 3,
-    size = 3.2,
-    direction = "y",
-    segment.color = "grey70"
-  ) +
-  scale_color_manual(values = region_colors) +
-  scale_x_continuous(breaks = seq(1960, 2020, 10)) +
-  scale_y_continuous(labels = label_percent(scale = 1)) +
-  labs(
-    title = "Share of Global Fossil CO2 Emissions by Region",
-    subtitle = "How each region's contribution has shifted over 65 years",
-    x = NULL,
-    y = "% of global emissions"
-  ) +
-  theme_slate
+if (nrow(country_lookup) != length(selected_country_cols)) {
+  stop("The population lookup does not cover every selected country.")
+}
+
+pop_long <- pop_raw |>
+  filter(`Country Name` %in% country_lookup$wb_name) |>
+  select(`Country Name`, matches("^\\d{4}$")) |>
+  pivot_longer(
+    cols = -`Country Name`,
+    names_to = "year",
+    values_to = "population"
+  ) |>
+  mutate(year = as.numeric(year)) |>
+  filter(year >= 1960, year <= 2023) |>
+  left_join(
+    country_lookup,
+    by = c("Country Name" = "wb_name")
+  ) |>
+  select(year, country, population)
+
+cat("Population data:", nrow(pop_long), "country-year rows\n")
+cat("Year range:", min(pop_long$year), "-", max(pop_long$year), "\n")
 ```
 
-### 5.4 Sparkline Summary Table
+#### 4.3.8 Compute Per-Capita Emissions
+
+We join emissions and population by country and year. GtCO₂ is converted to tonnes before
+dividing by population, producing tonnes of CO₂ per person. Since World Bank population
+data starts in 1960, the combined dataset covers 1960–2023.
 
 ```{r}
-#| label: sparkline-table
+#| label: per-capita
+emissions_percapita <- emissions_long |>
+  inner_join(pop_long, by = c("country", "year")) |>
+  mutate(
+    emissions_per_capita = (emissions_gtco2 * 1e9) / population
+  )
+
+cat("Merged dataset:", nrow(emissions_percapita), "rows\n")
+cat(
+  "Year range:",
+  min(emissions_percapita$year),
+  "-",
+  max(emissions_percapita$year),
+  "\n\n"
+)
+
+emissions_percapita |>
+  filter(year == 2023) |>
+  arrange(desc(emissions_per_capita)) |>
+  mutate(
+    emissions_per_capita = round(emissions_per_capita, 2),
+    population_m = round(population / 1e6, 0)
+  ) |>
+  select(country, emissions_per_capita, population_m) |>
+  knitr::kable(
+    col.names = c("Country", "tCO2/person (2023)", "Population (millions)"),
+    caption = "Per-capita emissions for the selected countries (2023)"
+  )
+```
+
+```{r}
+#| label: save-percapita
+write_csv(emissions_percapita, "data/cleaned/emissions_percapita.csv")
+cat("Saved: data/cleaned/emissions_percapita.csv\n")
+```
+
+#### 4.3.9 Quick Validation
+
+As a sanity check, we verify that the computed 2023 global total is close to the confirmed
+figure of 37.8 GtCO₂ reported by Carbon Brief. We also display the selected countries and
+their shares of global emissions to confirm the ranking.
+
+```{r}
+#| label: validation
+total_2023 <- world_totals |>
+  filter(year == 2023) |>
+  pull(world_gtco2)
+
+cat(
+  "2023 global total:",
+  round(total_2023, 2),
+  "GtCO2",
+  "(expected approximately 37.8 GtCO2)\n\n"
+)
+
+emissions_long |>
+  filter(year == 2023) |>
+  arrange(desc(emissions_gtco2)) |>
+  mutate(
+    emissions_gtco2 = round(emissions_gtco2, 2),
+    pct_share = round(pct_share, 1)
+  ) |>
+  select(country, emissions_gtco2, pct_share) |>
+  knitr::kable(
+    col.names = c("Country", "GtCO2 (2023)", "% of Global"),
+    caption = "2023 emissions of the five selected countries"
+  )
+
+selected_share_2023 <- emissions_long |>
+  filter(year == 2023) |>
+  summarise(total_share = sum(pct_share)) |>
+  pull(total_share)
+
+cat(
+  "\nCombined 2023 share of selected countries:",
+  round(selected_share_2023, 1),
+  "%\n"
+)
+```
+
+## 5. Design Rationale
+
+The redesign follows the design brief in four main ways:
+
+1. **Country trends are shown separately rather than stacked.** Each sparkline has its own baseline, so readers no longer need to estimate values by subtracting moving boundaries.
+2. **All rows represent the same type of entity.** Using countries only avoids mixing individual countries with aggregated groups such as the European Union and Rest of World.
+3. **Total and per-capita emissions are shown together.** Total emissions show each country's contribution to the global total, while per-capita emissions provide context for population size.
+4. **The table supports quick comparison.** Historical trends, latest totals, per-capita values, global shares and five-year changes are aligned in one compact display. Distinct Okabe–Ito colours help readers separate the five countries.
+
+A sparkline is mainly intended to show the shape and direction of a trend rather than support precise year-by-year reading. The numerical columns therefore provide the exact 2023 values and recent changes needed for comparison.
+
+## 6. Improved Visualization (Sparkline Table)
+
+The following sparkline summary table is our main redesigned visualization. It combines trend lines, total emissions,
+per-capita values, % share, and % change into a single compact table which makes it easy
+to compare all five countries at a glance.
+
+```{r}
+#| label: tbl-sparkline-summary
+#| tbl-cap: "Historical fossil CO₂ trends and 2023 indicators for the five highest-emitting countries."
+#| message: false
+#| warning: false
+
+library(dplyr)
+library(purrr)
+library(ggplot2)
 library(gt)
-library(gtExtras)
 
-summary_stats <- emissions_long |>
-  group_by(region) |>
+# Create a folder for temporary sparkline images
+sparkline_dir <- file.path(tempdir(), "sparklines")
+dir.create(sparkline_dir, showWarnings = FALSE, recursive = TRUE)
+
+# Okabe–Ito-inspired colours
+country_colours <- c(
+  "China" = "#D55E00",
+  "United States" = "#0072B2",
+  "India" = "#E69F00",
+  "Russia" = "#009E73",
+  "Japan" = "#CC79A7"
+)
+
+# Create the summary data
+spark_data <- emissions_percapita |>
+  arrange(country, year) |>
+  group_by(country) |>
   summarise(
-    trend = list(emissions_gtco2),
-    latest = round(last(emissions_gtco2), 2),
-    share = paste0(round(last(pct_share), 1), "%"),
-    change_5yr = round(
-      (last(emissions_gtco2) - nth(emissions_gtco2, -5)) /
-        nth(emissions_gtco2, -5) *
-        100,
-      1
+    trend_values = list(
+      tibble(
+        year = year,
+        emissions_gtco2 = emissions_gtco2
+      )
     ),
-    peak_year = year[which.max(emissions_gtco2)],
-    peak = round(max(emissions_gtco2), 2),
+    latest = last(emissions_gtco2),
+    per_capita = last(emissions_per_capita),
+    share = last(pct_share),
+    emissions_5yr_ago = emissions_gtco2[
+      year == max(year) - 5
+    ][1],
     .groups = "drop"
+  ) |>
+  mutate(
+    change_5yr = (latest / emissions_5yr_ago - 1) * 100,
+    spark_colour = unname(country_colours[as.character(country)])
   ) |>
   arrange(desc(latest))
 
-summary_stats |>
+# Function to create and save one sparkline
+save_sparkline <- function(data, country_name, colour) {
+  safe_name <- gsub("[^A-Za-z0-9]+", "_", country_name)
+
+  output_path <- file.path(
+    sparkline_dir,
+    paste0(safe_name, ".png")
+  )
+
+  spark_plot <- ggplot(
+    data,
+    aes(
+      x = year,
+      y = emissions_gtco2
+    )
+  ) +
+    geom_area(
+      fill = colour,
+      alpha = 0.18
+    ) +
+    geom_line(
+      colour = colour,
+      linewidth = 1.1,
+      lineend = "round"
+    ) +
+    geom_point(
+      data = slice_tail(data, n = 1),
+      colour = colour,
+      size = 2.2
+    ) +
+    scale_x_continuous(
+      expand = expansion(mult = c(0.01, 0.03))
+    ) +
+    scale_y_continuous(
+      expand = expansion(mult = c(0.06, 0.10))
+    ) +
+    theme_void() +
+    theme(
+      plot.margin = margin(1, 1, 1, 1)
+    )
+
+  ggsave(
+    filename = output_path,
+    plot = spark_plot,
+    width = 2.4,
+    height = 0.65,
+    units = "in",
+    dpi = 180,
+    bg = "transparent"
+  )
+
+  output_path
+}
+
+# Generate one image per country
+spark_data <- spark_data |>
+  mutate(
+    spark_path = pmap_chr(
+      list(
+        trend_values,
+        country,
+        spark_colour
+      ),
+      save_sparkline
+    )
+  )
+
+# Build the gt table
+spark_data |>
+  select(
+    country,
+    spark_path,
+    latest,
+    per_capita,
+    share,
+    change_5yr
+  ) |>
   gt() |>
-  gt_plt_sparkline(
-    trend,
-    same_limit = FALSE,
-    type = "shaded",
-    fig_dim = c(15, 40),
-    palette = c("black", "black", "grey80", "grey80", "grey90")
+  text_transform(
+    locations = cells_body(columns = spark_path),
+    fn = function(paths) {
+      map(
+        paths,
+        ~ local_image(
+          filename = .x,
+          height = 45
+        )
+      )
+    }
   ) |>
   cols_label(
-    region = "Region",
-    trend = "Emissions Trend (1959-2023)",
-    latest = "GtCO2 (2023)",
-    share = "% Share",
-    change_5yr = "5yr Change (%)",
-    peak_year = "Peak Year",
-    peak = "Peak GtCO2"
+    country = "Country",
+    spark_path = "Trend (1960–2023)",
+    latest = "GtCO₂ (2023)",
+    per_capita = "tCO₂/person (2023)",
+    share = "% Share (2023)",
+    change_5yr = "5yr Change (%) (2019-2023)"
   ) |>
   tab_header(
-    title = "Fossil CO2 Emissions by Region",
-    subtitle = "Summary with embedded sparklines (1959-2023)"
+    title = md(
+      "**Top Five Fossil CO₂ Emitting Countries**"
+    ),
+    subtitle = md(
+      "Historical trends and 2023 key indicators (1960–2023)"
+    )
   ) |>
-  fmt_number(columns = c(latest, peak), decimals = 2) |>
-  fmt_number(columns = change_5yr, decimals = 1, force_sign = TRUE) |>
-  tab_source_note("Data: Global Carbon Project, GCB 2024") |>
+  fmt_number(
+    columns = latest,
+    decimals = 2
+  ) |>
+  fmt_number(
+    columns = per_capita,
+    decimals = 1
+  ) |>
+  fmt_percent(
+    columns = share,
+    decimals = 1,
+    scale_values = FALSE
+  ) |>
+  fmt_number(
+    columns = change_5yr,
+    decimals = 1,
+    force_sign = TRUE
+  ) |>
+  tab_source_note(
+    md(
+      "**Data:** Global Carbon Project (National Fossil Carbon Emissions 2024 v1.0) and World Bank Population Data."
+    )
+  ) |>
   tab_style(
     style = cell_text(weight = "bold"),
     locations = cells_column_labels()
+  ) |>
+  cols_align(
+    align = "left",
+    columns = c(country, spark_path)
+  ) |>
+  cols_align(
+    align = "right",
+    columns = c(
+      latest,
+      per_capita,
+      share,
+      change_5yr
+    )
+  ) |>
+  cols_width(
+    country ~ px(180),
+    spark_path ~ px(210),
+    latest ~ px(115),
+    per_capita ~ px(125),
+    share ~ px(100),
+    change_5yr ~ px(125)
+  ) |>
+  tab_options(
+    table.font.size = px(16),
+    heading.align = "center",
+    column_labels.border.top.width = px(2),
+    column_labels.border.bottom.width = px(2),
+    row.striping.include_table_body = TRUE,
+    data_row.padding = px(10)
   )
 ```
 
-## 6. Key Findings
+- China remained the largest fossil CO₂ emitter in 2023, contributing almost one-third of global emissions. Its sparkline also shows rapid growth after 2000 compared with the other countries.
 
-1. **China** overtook the United States as the largest emitter around 2006 and has continued to grow rapidly, reaching `r summary_stats$latest[summary_stats$region == "China"]` GtCO2 in 2023.
+- Although the United States remained the second-largest emitter, its historical trend has generally declined from its earlier peak, unlike China’s and India’s continued growth
 
-2. **The United States** and **European Union** show declining trends, with the EU peaking in the 1970s--1980s.
+- India exhibited the fastest long-term growth among the selected countries and continues to increase its share of global emissions.
 
-3. **India's** emissions are growing but remain far smaller in absolute terms.
+- Russia experienced a sharp decline after the early 1990s before stabilising, illustrating a different historical pattern from the other countries.
 
-4. **Rest of World** accounts for a substantial and growing share, highlighting that emissions are a global challenge, not confined to a few major economies.
+- Japan recorded the lowest total emissions among the five countries and showed a gradual decline after reaching its historical peak.
+
+- Comparing per-capita emissions provides additional context. While China has the highest total emissions, the United States and Russia recorded considerably higher emissions per person in 2023.
+
+The visualization highlights differences in historical trends and emission levels among the five countries. While it supports comparison, it does not explain the underlying economic, political, or technological factors behind these changes.
 
 ## 7. References
 
-- Friedlingstein, P., et al. (2024). Global Carbon Budget 2024. *Earth System Science Data*, 16, 1--102. doi:10.5194/essd-16-1-2024
-- Global Carbon Project. (2024). National Fossil Carbon Emissions 2024 v1.0. Retrieved from [globalcarbonbudget.org](https://globalcarbonbudget.org/gcb-2024)
-- Carbon Brief. (2024). Global CO2 emissions from fossil fuels by region, 1959--2024. Retrieved from [carbonbrief.org](https://www.carbonbrief.org)
-- United Nations. (2024). World Population Prospects 2024. Retrieved from [population.un.org/wpp](https://population.un.org/wpp/downloads)
+- Carbon Brief. (2024). *Analysis: Global CO₂ emissions will reach new high in 2024 despite slower growth*.  
+  <https://www.carbonbrief.org/analysis-global-co2-emissions-will-reach-new-high-in-2024-despite-slower-growth/>
+
+- Global Carbon Project. (2024). *National Fossil Carbon Emissions 2024 v1.0*.<https://globalcarbonbudget.org/gcb-2024/>
+
+- World Bank. (2024). *World Development Indicators: Population, total (SP.POP.TOTL)*.  
+  <https://data.worldbank.org/indicator/SP.POP.TOTL>
+
+## 8. AI Documentation
+
+The AI-related supporting documents are provided separately:
+
+- [AI Interaction Log](ai_log/)
+- [AI Usage Report](ai_usage_report.html)
+
+The interaction log records the prompts and responses that influenced the critique, design decisions, coding process, and rejected suggestions. The AI Usage Report summarises how AI tools were used in the project and includes the required word count.
