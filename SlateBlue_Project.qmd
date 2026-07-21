@@ -390,7 +390,7 @@ cat("GDP dataset imported:", nrow(gdp_raw), "countries,", ncol(gdp_raw), "column
 ```{r}
 #| label: clean-gdp
 
-GDP_START_YEAR <- 2018L
+GDP_START_YEAR <- 2019L
 GDP_END_YEAR <- 2023L
 
 gdp_clean <- gdp_raw |>
@@ -500,12 +500,12 @@ gdp_change_5yr
 ```{r}
 write_csv(
   gdp_clean,
-  "data/cleaned/gdp_2018_2023.csv"
+  "data/cleaned/gdp_2019_2023.csv"
 )
 
 write_csv(
   gdp_change_5yr,
-  "data/cleaned/gdp_change_2018_2023.csv"
+  "data/cleaned/gdp_change_2019_2023.csv"
 )
 ```
 
@@ -615,13 +615,23 @@ spark_data <- emissions_percapita |>
     per_capita = last(emissions_per_capita),
     share = last(pct_share),
     emissions_5yr_ago = emissions_gtco2[
-      year == max(year) - 5
+      year == max(year) - 4
     ][1],
     .groups = "drop"
   ) |>
   mutate(
     change_5yr = (latest / emissions_5yr_ago - 1) * 100,
     spark_colour = unname(country_colours[as.character(country)])
+  ) |>
+  
+  # join the calculated GDP percentage change
+  left_join(
+    gdp_change_5yr |>
+      select(
+        country,
+        gdp_change_5yr
+      ),
+    by = "country"
   ) |>
   arrange(desc(latest))
 
@@ -746,6 +756,21 @@ spark_data <- spark_data |>
 
 spark_data <- spark_data |>
   mutate(
+    gdp_change_5yr_display = case_when(
+      gdp_change_5yr > 0 ~ paste0(
+        "▲ ",
+        sprintf("%.1f%%", gdp_change_5yr)
+      ),
+      gdp_change_5yr < 0 ~ paste0(
+        "▼ ",
+        sprintf("%.1f%%", gdp_change_5yr)
+      ),
+      TRUE ~ sprintf(
+        "%.1f%%",
+        gdp_change_5yr
+      )
+    ),
+
     change_5yr_display = case_when(
       change_5yr > 0 ~ paste0("▲ ", sprintf("%.1f%%", change_5yr)),
       change_5yr < 0 ~ paste0("▼ ", sprintf("%.1f%%", change_5yr)),
@@ -761,11 +786,16 @@ spark_data |>
     latest,
     per_capita,
     share,
+    gdp_change_5yr,
+    gdp_change_5yr_display,
     change_5yr,
     change_5yr_display
   ) |>
   gt() |>
-  cols_hide(columns = change_5yr) |>
+  cols_hide(columns = c(
+      gdp_change_5yr,
+      change_5yr
+    )) |>
   text_transform(
     locations = cells_body(columns = spark_path),
     fn = function(paths) map(paths, ~ local_image(filename = .x, height = 73))
@@ -776,6 +806,7 @@ spark_data |>
     latest = "GtCO₂ (2023) ",
     per_capita = "tCO₂/person (2023)",
     share = "Share (2023)",
+    gdp_change_5yr_display = "GDP Δ (2019-2023)",
     change_5yr_display = "5yr Δ (2019-2023)"
   ) |>
   tab_header(
@@ -786,6 +817,24 @@ spark_data |>
   fmt_number(columns = per_capita, decimals = 1) |>
   fmt_percent(columns = share, decimals = 1, scale_values = FALSE) |>
   # fmt_percent(columns = change_5yr, decimals = 1, scale_values = FALSE) |>
+  tab_style(
+  style = cell_text(color = "#1a9850", weight = "bold"),
+  locations = cells_body(
+    columns = gdp_change_5yr_display,
+    rows = gdp_change_5yr > 0
+  )
+  ) |>
+  tab_style(
+    style = cell_text(
+      color = "#d73027",
+      weight = "bold"
+    ),
+    locations = cells_body(
+      columns = gdp_change_5yr_display,
+      rows = gdp_change_5yr < 0
+    )
+  ) |>
+
   tab_style(
     style = cell_text(color = "#1a9850", weight = "bold"),
     locations = cells_body(
@@ -801,7 +850,7 @@ spark_data |>
     )
   ) |>
   tab_source_note(md(
-    "**Data:** Global Carbon Project (National Fossil Carbon Emissions 2024 v1.0) and World Bank Population Data."
+    "**Data:** Global Carbon Project (National Fossil Carbon Emissions 2024 v1.0), World Bank Population Data and World Bank GDP (current US$)."
   )) |>
   tab_source_note(md(
     "**Dotted Lines Marked years:** 1991 (Soviet collapse), 2008 (global financial crisis), 2020 (COVID-19)."
@@ -817,14 +866,14 @@ spark_data |>
   tab_style(
     style = cell_text(size = px(12)),
     locations = cells_body(
-      columns = c(latest, per_capita, share, change_5yr_display)
+      columns = c(latest, per_capita, share, gdp_change_5yr_display, change_5yr_display)
     )
   ) |>
 
   cols_align(align = "left", columns = c(country, spark_path)) |>
   cols_align(
     align = "right",
-    columns = c(latest, per_capita, share, change_5yr_display)
+    columns = c(latest, per_capita, share,gdp_change_5yr_display, change_5yr_display)
   ) |>
 
   cols_width(
@@ -833,6 +882,7 @@ spark_data |>
     latest ~ px(75),
     per_capita ~ px(80),
     share ~ px(65),
+    gdp_change_5yr_display ~ px(90),
     change_5yr_display ~ px(75)
   ) |>
 
