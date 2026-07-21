@@ -373,6 +373,162 @@ write_csv(emissions_percapita, "data/cleaned/emissions_percapita.csv")
 cat("Saved: data/cleaned/emissions_percapita.csv\n")
 ```
 
+#### Import GDP Data
+```{r}
+#| label: import-gdp
+
+gdp_raw <- read_excel(
+  "data/raw/API_NY.GDP.MKTP.CD_DS2_en_excel_v2_33067.xls",
+  sheet = "Data",
+  skip = 3
+)
+
+glimpse(gdp_raw)
+```
+
+
+#### Clean GDP Data
+#| label: clean-gdp
+```{r}
+#| label: clean-gdp
+
+GDP_START_YEAR <- 2018L
+GDP_END_YEAR <- 2023L
+
+# Reshape and clean the GDP dataset
+gdp_clean <- gdp_raw |>
+  
+  filter(`Indicator Code` == "NY.GDP.MKTP.CD") |>
+
+  # Keep only the countries used in the sparkline table
+  filter(`Country Name` %in% country_lookup$wb_name) |>
+
+  # Keep the country identifier and year columns
+  select(
+    `Country Name`,
+    matches("^\\d{4}$")
+  ) |>
+
+  # Convert the wide year columns into tidy country-year rows
+  pivot_longer(
+    cols = -`Country Name`,
+    names_to = "year",
+    values_to = "gdp_usd",
+    values_transform = list(gdp_usd = as.numeric),
+    values_drop_na = FALSE
+  ) |>
+
+  mutate(
+    year = parse_integer(year)
+  ) |>
+
+  
+  filter(
+    between(year, GDP_START_YEAR, GDP_END_YEAR)
+  ) |>
+
+  # Match World Bank country names to the project country names
+  left_join(
+    country_lookup |>
+      select(country, wb_name),
+    by = c("Country Name" = "wb_name")
+  ) |>
+
+  select(
+    country,
+    year,
+    gdp_usd
+  ) |>
+
+  arrange(
+    country,
+    year
+  )
+
+```
+
+### validating GDP Data
+```{r}
+expected_year_count <- GDP_END_YEAR - GDP_START_YEAR + 1L
+
+gdp_validation <- gdp_clean |>
+  group_by(country) |>
+  summarise(
+    year_count = n_distinct(year),
+    missing_values = sum(is.na(gdp_usd)),
+    .groups = "drop"
+  )
+
+if (
+  nrow(gdp_validation) != nrow(country_lookup) ||
+    any(gdp_validation$year_count != expected_year_count) ||
+    any(gdp_validation$missing_values > 0)
+) {
+  stop(
+    "GDP validation failed: check the selected countries, years or missing values."
+  )
+}
+
+gdp_validation
+```
+
+### Calculate 5 year GDP percentage change
+```{r}
+gdp_change_5yr <- gdp_clean |>
+  
+  filter(
+    year %in% c(GDP_START_YEAR, GDP_END_YEAR)
+  ) |>
+
+  mutate(
+    period = if_else(
+      year == GDP_START_YEAR,
+      "start",
+      "end"
+    )
+  ) |>
+
+  select(
+    country,
+    period,
+    gdp_usd
+  ) |>
+
+  pivot_wider(
+    names_from = period,
+    values_from = gdp_usd,
+    names_prefix = "gdp_"
+  ) |>
+
+  mutate(
+    gdp_change_5yr = (
+      gdp_end / gdp_start - 1
+    ) * 100
+  ) |>
+
+  arrange(
+    desc(gdp_change_5yr)
+  )
+
+if (any(is.na(gdp_change_5yr$gdp_change_5yr))) {
+  stop("GDP percentage change could not be calculated for every country.")
+}
+
+gdp_change_5yr
+```
+
+```{r}
+write_csv(
+  gdp_clean,
+  "data/cleaned/gdp_2018_2023.csv"
+)
+
+write_csv(
+  gdp_change_5yr,
+  "data/cleaned/gdp_change_2018_2023.csv"
+)
+```
+
 #### 4.3.9 Quick Validation
 
 As a sanity check, we verify that the computed 2023 global total is close to the confirmed
