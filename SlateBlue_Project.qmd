@@ -382,68 +382,48 @@ gdp_raw <- read_excel(
   sheet = "Data",
   skip = 3
 )
-
-glimpse(gdp_raw)
+cat("GDP dataset imported:", nrow(gdp_raw), "countries,", ncol(gdp_raw), "columns\n")
 ```
 
 
 #### Clean GDP Data
-#| label: clean-gdp
 ```{r}
 #| label: clean-gdp
 
 GDP_START_YEAR <- 2018L
 GDP_END_YEAR <- 2023L
 
-# Reshape and clean the GDP dataset
 gdp_clean <- gdp_raw |>
-  
-  filter(`Indicator Code` == "NY.GDP.MKTP.CD") |>
-
-  # Keep only the countries used in the sparkline table
-  filter(`Country Name` %in% country_lookup$wb_name) |>
-
-  # Keep the country identifier and year columns
-  select(
-    `Country Name`,
-    matches("^\\d{4}$")
+  # Keep the required indicator and countries
+  filter(
+    `Indicator Code` == "NY.GDP.MKTP.CD",
+    `Country Name` %in% country_lookup$wb_name
   ) |>
+  select(`Country Name`, matches("^\\d{4}$")) |>
 
-  # Convert the wide year columns into tidy country-year rows
+  # Reshape annual columns into tidy country-year rows
   pivot_longer(
     cols = -`Country Name`,
     names_to = "year",
     values_to = "gdp_usd",
-    values_transform = list(gdp_usd = as.numeric),
-    values_drop_na = FALSE
+    names_transform = list(year = parse_integer),
+    values_transform = list(gdp_usd = as.numeric)
   ) |>
+  filter(between(year, GDP_START_YEAR, GDP_END_YEAR)) |>
 
-  mutate(
-    year = parse_integer(year)
-  ) |>
-
-  
-  filter(
-    between(year, GDP_START_YEAR, GDP_END_YEAR)
-  ) |>
-
-  # Match World Bank country names to the project country names
+  # Standardise country names
   left_join(
     country_lookup |>
       select(country, wb_name),
     by = c("Country Name" = "wb_name")
   ) |>
+  transmute(country, year, gdp_usd) |>
+  arrange(country, year)
 
-  select(
-    country,
-    year,
-    gdp_usd
-  ) |>
-
-  arrange(
-    country,
-    year
-  )
+cat(
+  "Clean GDP data:", n_distinct(gdp_clean$country), "countries,",
+  min(gdp_clean$year), "-", max(gdp_clean$year), "\n"
+)
 
 ```
 
