@@ -112,9 +112,26 @@ to compute **per-capita CO₂ emissions** (tonnes CO₂ per person) for each sel
 addressing the critique that the original chart shows only absolute totals. Per-capita
 values provide an additional perspective because countries differ greatly in population size.
 
-### 4.3 Data Import and Cleaning Pipeline
+### 4.3 GDP Data
 
-#### 4.3.1 Load Packages
+| | |
+|---|---|
+| **Dataset** | World Development Indicators — GDP (current US$) |
+| **Source** | World Bank |
+| **URL** | <https://data.worldbank.org/indicator/NY.GDP.MKTP.CD?end=2024&start=2024&view=map&year=2024> |
+| **File** | `API_NY.GDP.MKTP.CD_DS2_en_excel_v2_33067.xls` |
+
+This dataset provides annual GDP measured in current US dollars. We use the
+2019 to 2023 values for the five selected countries to calculate the percentage
+change in GDP over the period. Adding GDP provides economic context alongside
+the change in fossil CO₂ emissions shown in the sparkline table.
+
+Because the indicator is measured in current US dollars, the result is described
+as **GDP change** rather than real GDP growth.
+
+### 4.4 Data Import and Cleaning Pipeline
+
+#### 4.4.1 Load Packages
 
 ```{r}
 #| label: load-packages
@@ -123,7 +140,7 @@ library(readxl)
 library(scales)
 ```
 
-#### 4.3.2 Import Raw Data
+#### 4.4.2 Import Raw Data
 
 The emissions Excel file has several header rows with metadata (citation info, unit
 descriptions, notes on methodology) before the actual data begins. We skip the first
@@ -157,7 +174,7 @@ cat(
 )
 ```
 
-#### 4.3.3 Identify the Five Highest-Emitting Countries
+#### 4.4.3 Identify the Five Highest-Emitting Countries
 
 The dataset contains individual country columns followed by several overlapping aggregate
 groups such as OECD, EU27 and geographic regions. To avoid mixing countries with aggregates,
@@ -209,7 +226,7 @@ top5_countries |>
   )
 ```
 
-#### 4.3.4 Clean and Convert Emissions Data
+#### 4.4.4 Clean and Convert Emissions Data
 
 The raw values are reported in MtC/yr (million tonnes of carbon per year). We convert
 them to GtCO₂/yr (billion tonnes of CO₂ per year) using the factor documented in the
@@ -263,7 +280,7 @@ cat("Selected countries:", paste(top5_countries$country, collapse = ", "), "\n")
 cat("Cleaned dataset:", nrow(emissions_long), "country-year rows\n")
 ```
 
-#### 4.3.5 Save Cleaned Emissions Data
+#### 4.4.5 Save Cleaned Emissions Data
 
 ```{r}
 #| label: save-cleaned
@@ -274,7 +291,7 @@ cat("Saved: data/cleaned/emissions_wide.csv\n")
 cat("Saved: data/cleaned/emissions_by_country.csv\n")
 ```
 
-#### 4.3.6 Import Population Data
+#### 4.4.6 Import Population Data
 
 The original visualization only shows absolute emissions. However, countries have very
 different population sizes, so total emissions alone do not provide the full picture.
@@ -291,7 +308,7 @@ pop_raw <- read_excel(
 cat("Population dataset:", nrow(pop_raw), "rows x", ncol(pop_raw), "columns\n")
 ```
 
-#### 4.3.7 Clean and Merge Population Data
+#### 4.4.7 Clean and Merge Population Data
 
 The country names in the two datasets are not completely identical. For example, the
 emissions dataset uses `USA` and `Russia`, while the World Bank uses `United States` and
@@ -330,7 +347,7 @@ cat("Population data:", nrow(pop_long), "country-year rows\n")
 cat("Year range:", min(pop_long$year), "-", max(pop_long$year), "\n")
 ```
 
-#### 4.3.8 Compute Per-Capita Emissions
+#### 4.4.8 Compute Per-Capita Emissions
 
 We join emissions and population by country and year. GtCO₂ is converted to tonnes before
 dividing by population, producing tonnes of CO₂ per person. Since World Bank population
@@ -373,7 +390,11 @@ write_csv(emissions_percapita, "data/cleaned/emissions_percapita.csv")
 cat("Saved: data/cleaned/emissions_percapita.csv\n")
 ```
 
-#### Import GDP Data
+#### 4.4.9 Import GDP Data
+
+The World Bank workbook contains several metadata rows before the main data
+table. We import the `Data` sheet and skip the first three rows so that the
+country and annual GDP fields are read with the correct column names.
 ```{r}
 #| label: import-gdp
 
@@ -386,7 +407,12 @@ cat("GDP dataset imported:", nrow(gdp_raw), "countries,", ncol(gdp_raw), "column
 ```
 
 
-#### Clean GDP Data
+#### 4.4.10 Clean GDP Data
+
+We keep the GDP current US$ indicator and the five selected countries. The
+annual year columns are reshaped into country-year rows, country names are
+standardised using the existing lookup table, and the data is restricted from
+2019 to 2023.
 ```{r}
 #| label: clean-gdp
 
@@ -427,7 +453,12 @@ cat(
 
 ```
 
-### validating GDP Data
+#### 4.4.11 Validate GDP Data
+
+We validate the cleaned data by checking that every selected country has all
+five annual observations from 2019 to 2023 and that there are no missing GDP
+values. This prevents incomplete data from being used in the percentage change
+calculation.
 ```{r}
 expected_year_count <- GDP_END_YEAR - GDP_START_YEAR + 1L
 
@@ -452,7 +483,11 @@ if (
 gdp_validation
 ```
 
-### Calculate 5 year GDP percentage change
+#### 4.4.12 Calculate 5 year GDP percentage change
+
+For each country, we compare GDP in 2019 with GDP in 2023. The data is reshaped
+into start and end values, which are then used to calculate the percentage
+change in GDP over the selected period.
 ```{r}
 gdp_change_5yr <- gdp_clean |>
   
@@ -509,7 +544,7 @@ write_csv(
 )
 ```
 
-#### 4.3.9 Quick Validation
+#### 4.4.13 Quick Validation
 
 As a sanity check, we verify that the computed 2023 global total is close to the confirmed
 figure of 37.8 GtCO₂ reported by Carbon Brief. We also display the selected countries and
@@ -919,6 +954,9 @@ The visualization highlights differences in historical trends and emission level
 
 - World Bank. (2024). *World Development Indicators: Population, total (SP.POP.TOTL)*.  
   <https://data.worldbank.org/indicator/SP.POP.TOTL>
+
+- World Bank. (2024). *World Development Indicators: GDP (current US$) (NY.GDP.MKTP.CD).*  
+  <https://data.worldbank.org/indicator/NY.GDP.MKTP.CD?end=2024&start=2024&view=map&year=2024>
 
 ## 8. AI Documentation
 
