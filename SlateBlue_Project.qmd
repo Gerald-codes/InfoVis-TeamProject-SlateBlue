@@ -118,7 +118,7 @@ values provide an additional perspective because countries differ greatly in pop
 |---|---|
 | **Dataset** | World Development Indicators — GDP (current US$) |
 | **Source** | World Bank |
-| **URL** | <https://data.worldbank.org/indicator/NY.GDP.MKTP.CD?end=2024&start=2024&view=map&year=2024> |
+| **URL** | <https://data.worldbank.org/indicator/NY.GDP.MKTP.CD> |
 | **File** | `API_NY.GDP.MKTP.CD_DS2_en_excel_v2_33067.xls` |
 
 This dataset provides annual GDP measured in current US dollars. We use the
@@ -956,7 +956,7 @@ The visualization highlights differences in historical trends and emission level
   <https://data.worldbank.org/indicator/SP.POP.TOTL>
 
 - World Bank. (2024). *World Development Indicators: GDP (current US$) (NY.GDP.MKTP.CD).*  
-  <https://data.worldbank.org/indicator/NY.GDP.MKTP.CD?end=2024&start=2024&view=map&year=2024>
+  <https://data.worldbank.org/indicator/NY.GDP.MKTP.CD>
 
 ## 8. AI Documentation
 
