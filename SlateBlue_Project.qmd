@@ -59,15 +59,15 @@ The redesign replaces the stacked area chart with a compact sparkline summary ta
 ::: {.callout-note appearance="simple" icon=false}
 ## Design Brief
 
-This redesign targets **general readers of climate news** who want to understand and compare how the largest emitting countries contribute to global CO₂ emissions. The goal is to show both **total** and **per-capita emissions**, so readers can compare national contributions from more than one perspective. The redesign focuses on the five highest-emitting countries in 2023, which together account for about 60% of global fossil CO₂ emissions while keeping the comparison manageable.
+This redesign is intended for **general readers of climate news** who want to compare how the largest-emitting countries contribute to global fossil CO₂ emissions. It supports comparisons of **national totals** and **per-capita emissions**, showing contributions and population-adjusted differences. The five highest emitters in 2023 are shown because together they produced about 60% of global fossil CO₂ emissions. This keeps the comparison compact without hiding differences inside aggregated regional categories.
 
 **Main revisions:**
 
-- **Focus on the five highest-emitting countries in 2023** to support direct country-to-country comparisons
-- **Sparkline summary table** replacing the stacked area chart so each country's historical trend can be viewed independently
-- **Integrated summary metrics** showing total emissions, per-capita emissions, percentage share, and changes from 2019 to 2023 alongside each sparkline
-- **Distinct Okabe–Ito colours** replacing the original gradient blues because the countries are nominal categories
-- **Direct country labels** in the first column, removing the need for a separate legend
+- Focus on the five highest-emitting countries for direct comparison
+- Use a sparkline summary table to separate historical trends
+- Pair trends with totals, per-capita values, global share, and emissions and nominal GDP changes from 2019 to 2023
+- Apply distinct Okabe–Ito colours with direct country labels
+- Encode increases and decreases with arrows, signs, and blue/orange styling
 
 :::
 
