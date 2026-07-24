@@ -633,6 +633,12 @@ country_colours <- c(
   "Japan" = "#CC79A7"
 )
 
+# Accessible signed-change colours with at least 4.5:1 contrast on white
+delta_colours <- c(
+  "increase" = "#B34700",
+  "decrease" = "#0072B2"
+)
+
 #Add annotations for events
 global_events <- tibble(
   year = c(1991, 2008, 2020),
@@ -700,7 +706,7 @@ save_sparkline <- function(data, country_name, colour, events) {
     geom_vline(
       data = events,
       aes(xintercept = year),
-      colour = "grey60",
+      colour = "black",
       linetype = "dotted",
       linewidth = 0.4,
       inherit.aes = FALSE
@@ -728,7 +734,7 @@ save_sparkline <- function(data, country_name, colour, events) {
       hjust = 0,
       vjust = 0.8,
       size = 2.0,
-      colour = "grey45"
+      colour = "black"
     ) +
     annotate(
       "text",
@@ -738,7 +744,7 @@ save_sparkline <- function(data, country_name, colour, events) {
       hjust = 0,
       vjust = 1.2,
       size = 1.8,
-      colour = "grey55"
+      colour = "black"
     ) +
     annotate(
       "text",
@@ -746,7 +752,7 @@ save_sparkline <- function(data, country_name, colour, events) {
       y = rep(-0.06 * ymax, 3),
       label = event_labels$label,
       size = 2.2,
-      colour = "grey45",
+      colour = "black",
       vjust = 1
     ) +
     scale_x_continuous(
@@ -799,12 +805,12 @@ spark_data <- spark_data |>
   mutate(
     gdp_change_2019_2023_display = case_when(
       gdp_pct_change_2019_2023 > 0 ~ paste0(
-        "▲ ",
+        "▲ +",
         sprintf("%.1f%%", gdp_pct_change_2019_2023)
       ),
       gdp_pct_change_2019_2023 < 0 ~ paste0(
-        "▼ ",
-        sprintf("%.1f%%", gdp_pct_change_2019_2023)
+        "▼ −",
+        sprintf("%.1f%%", abs(gdp_pct_change_2019_2023))
       ),
       TRUE ~ sprintf(
         "%.1f%%",
@@ -814,12 +820,12 @@ spark_data <- spark_data |>
 
     emissions_change_2019_2023_display = case_when(
       emissions_pct_change_2019_2023 > 0 ~ paste0(
-        "▲ ",
+        "▲ +",
         sprintf("%.1f%%", emissions_pct_change_2019_2023)
       ),
       emissions_pct_change_2019_2023 < 0 ~ paste0(
-        "▼ ",
-        sprintf("%.1f%%", emissions_pct_change_2019_2023)
+        "▼ −",
+        sprintf("%.1f%%", abs(emissions_pct_change_2019_2023))
       ),
       TRUE ~ sprintf("%.1f%%", emissions_pct_change_2019_2023)
     )
@@ -856,7 +862,9 @@ spark_data |>
     gdp_change_2019_2023_display = html(
       "Nominal GDP Δ<br>(2019–2023)"
     ),
-    emissions_change_2019_2023_display = "CO₂ Δ (2019–2023)"
+    emissions_change_2019_2023_display = html(
+      "CO₂ Δ<br>(2019–2023)"
+    )
   ) |>
   tab_header(
     title = md("**Top Five Fossil CO₂ Emitting Countries**"),
@@ -867,15 +875,18 @@ spark_data |>
   fmt_percent(columns = share, decimals = 1, scale_values = FALSE) |>
   # fmt_percent(columns = emissions_pct_change_2019_2023, decimals = 1, scale_values = FALSE) |>
   tab_style(
-  style = cell_text(color = "#1a9850", weight = "bold"),
-  locations = cells_body(
-    columns = gdp_change_2019_2023_display,
-    rows = gdp_pct_change_2019_2023 > 0
-  )
+    style = cell_text(
+      color = delta_colours[["increase"]],
+      weight = "bold"
+    ),
+    locations = cells_body(
+      columns = gdp_change_2019_2023_display,
+      rows = gdp_pct_change_2019_2023 > 0
+    )
   ) |>
   tab_style(
     style = cell_text(
-      color = "#d73027",
+      color = delta_colours[["decrease"]],
       weight = "bold"
     ),
     locations = cells_body(
@@ -885,14 +896,20 @@ spark_data |>
   ) |>
 
   tab_style(
-    style = cell_text(color = "#1a9850", weight = "bold"),
+    style = cell_text(
+      color = delta_colours[["increase"]],
+      weight = "bold"
+    ),
     locations = cells_body(
       columns = emissions_change_2019_2023_display,
       rows = emissions_pct_change_2019_2023 > 0
     )
   ) |>
   tab_style(
-    style = cell_text(color = "#d73027", weight = "bold"),
+    style = cell_text(
+      color = delta_colours[["decrease"]],
+      weight = "bold"
+    ),
     locations = cells_body(
       columns = emissions_change_2019_2023_display,
       rows = emissions_pct_change_2019_2023 < 0
@@ -903,6 +920,9 @@ spark_data |>
   )) |>
   tab_source_note(md(
     "**Interpretation:** GDP change is nominal and provides current-price context only; it is not real GDP growth or evidence of causation."
+  )) |>
+  tab_source_note(md(
+    "**Change encoding:** Orange ▲ indicates an increase and blue ▼ indicates a decrease. Colour communicates direction, not desirability."
   )) |>
   tab_source_note(md(
     "**Dotted Lines Marked years:** 1991 (Soviet collapse), 2008 (global financial crisis), 2020 (COVID-19)."
@@ -946,8 +966,8 @@ spark_data |>
     latest ~ px(75),
     per_capita ~ px(80),
     share ~ px(65),
-    gdp_change_2019_2023_display ~ px(90),
-    emissions_change_2019_2023_display ~ px(75)
+    gdp_change_2019_2023_display ~ px(110),
+    emissions_change_2019_2023_display ~ px(95)
   ) |>
 
   tab_options(
