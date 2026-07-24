@@ -52,7 +52,7 @@ The original article includes a preliminary estimate for 2024, but the underlyin
 
 ### 2.3 Proposed Improvements
 
-The redesign replaces the stacked area chart with a compact sparkline summary table, allowing each country’s historical trend to be viewed independently without comparing stacked layers. It focuses on the five highest-emitting countries in 2023 and removes broad aggregated categories such as the European Union and Rest of World. The table also reports total emissions, per-capita emissions, percentage share of global emissions and recent five-year change in a single view. Distinct colourblind-friendly colours make the countries easier to distinguish.
+The redesign replaces the stacked area chart with a compact sparkline summary table, allowing each country’s historical trend to be viewed independently without comparing stacked layers. It focuses on the five highest-emitting countries in 2023 and removes broad aggregated categories such as the European Union and Rest of World. The table also reports total emissions, per-capita emissions, percentage share of global emissions and changes from 2019 to 2023 in a single view. Distinct colourblind-friendly colours make the countries easier to distinguish.
 
 ## 3. Design Brief
 
@@ -65,7 +65,7 @@ This redesign targets **general readers of climate news** who want to understand
 
 - **Focus on the five highest-emitting countries in 2023** to support direct country-to-country comparisons
 - **Sparkline summary table** replacing the stacked area chart so each country's historical trend can be viewed independently
-- **Integrated summary metrics** showing total emissions, per-capita emissions, percentage share, and five-year change alongside each sparkline
+- **Integrated summary metrics** showing total emissions, per-capita emissions, percentage share, and changes from 2019 to 2023 alongside each sparkline
 - **Distinct Okabe–Ito colours** replacing the original gradient blues because the countries are nominal categories
 - **Direct country labels** in the first column, removing the need for a separate legend
 
@@ -416,8 +416,8 @@ standardised using the existing lookup table, and the data is restricted from
 ```{r}
 #| label: clean-gdp
 
-GDP_START_YEAR <- 2019L
-GDP_END_YEAR <- 2023L
+CHANGE_START_YEAR <- 2019L
+CHANGE_END_YEAR <- 2023L
 
 gdp_clean <- gdp_raw |>
   # Keep the required indicator and countries
@@ -435,7 +435,7 @@ gdp_clean <- gdp_raw |>
     names_transform = list(year = parse_integer),
     values_transform = list(gdp_usd = as.numeric)
   ) |>
-  filter(between(year, GDP_START_YEAR, GDP_END_YEAR)) |>
+  filter(between(year, CHANGE_START_YEAR, CHANGE_END_YEAR)) |>
 
   # Standardise country names
   left_join(
@@ -460,7 +460,7 @@ five annual observations from 2019 to 2023 and that there are no missing GDP
 values. This prevents incomplete data from being used in the percentage change
 calculation.
 ```{r}
-expected_year_count <- GDP_END_YEAR - GDP_START_YEAR + 1L
+expected_year_count <- CHANGE_END_YEAR - CHANGE_START_YEAR + 1L
 
 gdp_validation <- gdp_clean |>
   group_by(country) |>
@@ -483,21 +483,21 @@ if (
 gdp_validation
 ```
 
-#### 4.4.12 Calculate 5 year GDP percentage change
+#### 4.4.12 Calculate GDP Percentage Change from 2019 to 2023
 
 For each country, we compare GDP in 2019 with GDP in 2023. The data is reshaped
 into start and end values, which are then used to calculate the percentage
 change in GDP over the selected period.
 ```{r}
-gdp_change_5yr <- gdp_clean |>
+gdp_change_2019_2023 <- gdp_clean |>
   
   filter(
-    year %in% c(GDP_START_YEAR, GDP_END_YEAR)
+    year %in% c(CHANGE_START_YEAR, CHANGE_END_YEAR)
   ) |>
 
   mutate(
     period = if_else(
-      year == GDP_START_YEAR,
+      year == CHANGE_START_YEAR,
       "start",
       "end"
     )
@@ -516,20 +516,20 @@ gdp_change_5yr <- gdp_clean |>
   ) |>
 
   mutate(
-    gdp_change_5yr = (
+    gdp_pct_change_2019_2023 = (
       gdp_end / gdp_start - 1
     ) * 100
   ) |>
 
   arrange(
-    desc(gdp_change_5yr)
+    desc(gdp_pct_change_2019_2023)
   )
 
-if (any(is.na(gdp_change_5yr$gdp_change_5yr))) {
+if (any(is.na(gdp_change_2019_2023$gdp_pct_change_2019_2023))) {
   stop("GDP percentage change could not be calculated for every country.")
 }
 
-gdp_change_5yr
+gdp_change_2019_2023
 ```
 
 ```{r}
@@ -539,7 +539,7 @@ write_csv(
 )
 
 write_csv(
-  gdp_change_5yr,
+  gdp_change_2019_2023,
   "data/cleaned/gdp_change_2019_2023.csv"
 )
 ```
@@ -595,7 +595,7 @@ The redesign follows the design brief in four main ways:
 1. **Country trends are shown separately rather than stacked.** Each sparkline has its own baseline, so readers no longer need to estimate values by subtracting moving boundaries.
 2. **All rows represent the same type of entity.** Using countries only avoids mixing individual countries with aggregated groups such as the European Union and Rest of World.
 3. **Total and per-capita emissions are shown together.** Total emissions show each country's contribution to the global total, while per-capita emissions provide context for population size.
-4. **The table supports quick comparison.** Historical trends, latest totals, per-capita values, global shares and five-year changes are aligned in one compact display. Distinct Okabe–Ito colours help readers separate the five countries.
+4. **The table supports quick comparison.** Historical trends, latest totals, per-capita values, global shares and changes from 2019 to 2023 are aligned in one compact display. Distinct Okabe–Ito colours help readers separate the five countries.
 
 A sparkline is mainly intended to show the shape and direction of a trend rather than support precise year-by-year reading. The numerical columns therefore provide the exact 2023 values and recent changes needed for comparison.
 
@@ -649,22 +649,24 @@ spark_data <- emissions_percapita |>
     latest = last(emissions_gtco2),
     per_capita = last(emissions_per_capita),
     share = last(pct_share),
-    emissions_5yr_ago = emissions_gtco2[
-      year == max(year) - 4
+    emissions_2019 = emissions_gtco2[
+      year == CHANGE_START_YEAR
     ][1],
     .groups = "drop"
   ) |>
   mutate(
-    change_5yr = (latest / emissions_5yr_ago - 1) * 100,
+    emissions_pct_change_2019_2023 = (
+      latest / emissions_2019 - 1
+    ) * 100,
     spark_colour = unname(country_colours[as.character(country)])
   ) |>
   
   # join the calculated GDP percentage change
   left_join(
-    gdp_change_5yr |>
+    gdp_change_2019_2023 |>
       select(
         country,
-        gdp_change_5yr
+        gdp_pct_change_2019_2023
       ),
     by = "country"
   ) |>
@@ -791,25 +793,31 @@ spark_data <- spark_data |>
 
 spark_data <- spark_data |>
   mutate(
-    gdp_change_5yr_display = case_when(
-      gdp_change_5yr > 0 ~ paste0(
+    gdp_change_2019_2023_display = case_when(
+      gdp_pct_change_2019_2023 > 0 ~ paste0(
         "▲ ",
-        sprintf("%.1f%%", gdp_change_5yr)
+        sprintf("%.1f%%", gdp_pct_change_2019_2023)
       ),
-      gdp_change_5yr < 0 ~ paste0(
+      gdp_pct_change_2019_2023 < 0 ~ paste0(
         "▼ ",
-        sprintf("%.1f%%", gdp_change_5yr)
+        sprintf("%.1f%%", gdp_pct_change_2019_2023)
       ),
       TRUE ~ sprintf(
         "%.1f%%",
-        gdp_change_5yr
+        gdp_pct_change_2019_2023
       )
     ),
 
-    change_5yr_display = case_when(
-      change_5yr > 0 ~ paste0("▲ ", sprintf("%.1f%%", change_5yr)),
-      change_5yr < 0 ~ paste0("▼ ", sprintf("%.1f%%", change_5yr)),
-      TRUE ~ sprintf("%.1f%%", change_5yr)
+    emissions_change_2019_2023_display = case_when(
+      emissions_pct_change_2019_2023 > 0 ~ paste0(
+        "▲ ",
+        sprintf("%.1f%%", emissions_pct_change_2019_2023)
+      ),
+      emissions_pct_change_2019_2023 < 0 ~ paste0(
+        "▼ ",
+        sprintf("%.1f%%", emissions_pct_change_2019_2023)
+      ),
+      TRUE ~ sprintf("%.1f%%", emissions_pct_change_2019_2023)
     )
   )
 
@@ -821,15 +829,15 @@ spark_data |>
     latest,
     per_capita,
     share,
-    gdp_change_5yr,
-    gdp_change_5yr_display,
-    change_5yr,
-    change_5yr_display
+    gdp_pct_change_2019_2023,
+    gdp_change_2019_2023_display,
+    emissions_pct_change_2019_2023,
+    emissions_change_2019_2023_display
   ) |>
   gt() |>
   cols_hide(columns = c(
-      gdp_change_5yr,
-      change_5yr
+      gdp_pct_change_2019_2023,
+      emissions_pct_change_2019_2023
     )) |>
   text_transform(
     locations = cells_body(columns = spark_path),
@@ -841,8 +849,8 @@ spark_data |>
     latest = "GtCO₂ (2023) ",
     per_capita = "tCO₂/person (2023)",
     share = "Share (2023)",
-    gdp_change_5yr_display = "GDP Δ (2019-2023)",
-    change_5yr_display = "5yr Δ (2019-2023)"
+    gdp_change_2019_2023_display = "GDP Δ (2019–2023)",
+    emissions_change_2019_2023_display = "CO₂ Δ (2019–2023)"
   ) |>
   tab_header(
     title = md("**Top Five Fossil CO₂ Emitting Countries**"),
@@ -851,12 +859,12 @@ spark_data |>
   fmt_number(columns = latest, decimals = 2) |>
   fmt_number(columns = per_capita, decimals = 1) |>
   fmt_percent(columns = share, decimals = 1, scale_values = FALSE) |>
-  # fmt_percent(columns = change_5yr, decimals = 1, scale_values = FALSE) |>
+  # fmt_percent(columns = emissions_pct_change_2019_2023, decimals = 1, scale_values = FALSE) |>
   tab_style(
   style = cell_text(color = "#1a9850", weight = "bold"),
   locations = cells_body(
-    columns = gdp_change_5yr_display,
-    rows = gdp_change_5yr > 0
+    columns = gdp_change_2019_2023_display,
+    rows = gdp_pct_change_2019_2023 > 0
   )
   ) |>
   tab_style(
@@ -865,23 +873,23 @@ spark_data |>
       weight = "bold"
     ),
     locations = cells_body(
-      columns = gdp_change_5yr_display,
-      rows = gdp_change_5yr < 0
+      columns = gdp_change_2019_2023_display,
+      rows = gdp_pct_change_2019_2023 < 0
     )
   ) |>
 
   tab_style(
     style = cell_text(color = "#1a9850", weight = "bold"),
     locations = cells_body(
-      columns = change_5yr_display,
-      rows = change_5yr > 0
+      columns = emissions_change_2019_2023_display,
+      rows = emissions_pct_change_2019_2023 > 0
     )
   ) |>
   tab_style(
     style = cell_text(color = "#d73027", weight = "bold"),
     locations = cells_body(
-      columns = change_5yr_display,
-      rows = change_5yr < 0
+      columns = emissions_change_2019_2023_display,
+      rows = emissions_pct_change_2019_2023 < 0
     )
   ) |>
   tab_source_note(md(
@@ -901,14 +909,26 @@ spark_data |>
   tab_style(
     style = cell_text(size = px(12)),
     locations = cells_body(
-      columns = c(latest, per_capita, share, gdp_change_5yr_display, change_5yr_display)
+      columns = c(
+        latest,
+        per_capita,
+        share,
+        gdp_change_2019_2023_display,
+        emissions_change_2019_2023_display
+      )
     )
   ) |>
 
   cols_align(align = "left", columns = c(country, spark_path)) |>
   cols_align(
     align = "right",
-    columns = c(latest, per_capita, share,gdp_change_5yr_display, change_5yr_display)
+    columns = c(
+      latest,
+      per_capita,
+      share,
+      gdp_change_2019_2023_display,
+      emissions_change_2019_2023_display
+    )
   ) |>
 
   cols_width(
@@ -917,8 +937,8 @@ spark_data |>
     latest ~ px(75),
     per_capita ~ px(80),
     share ~ px(65),
-    gdp_change_5yr_display ~ px(90),
-    change_5yr_display ~ px(75)
+    gdp_change_2019_2023_display ~ px(90),
+    emissions_change_2019_2023_display ~ px(75)
   ) |>
 
   tab_options(
