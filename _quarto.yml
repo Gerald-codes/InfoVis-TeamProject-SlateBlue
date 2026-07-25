@@ -1,6 +1,10 @@
 project:
   title: "SlateBlue - CO2 Emissions Visualization Redesign"
   type: default
+  render:
+    - "*.qmd"
+    - "!ai_logs/**"
+    - "!ai_logs.md"
 
 execute:
   freeze: auto

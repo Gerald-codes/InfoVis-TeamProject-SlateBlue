@@ -3,17 +3,17 @@
 # Reading Excel in R
 
 **User:** Anonymous  
-**Created:** 6/22/2026 13:48:00
+**Created:** 6/22/2026 13:48:12
 **Updated:** 7/15/2026 15:24:33
 **Exported:** 7/25/2026 0:37:25  
 
 ## Prompt:
-6/22/2026, 1:48:00 PM
+6/22/2026, 1:48:12 PM
 
 We are starting our information visualisation project and found a Carbon Brief chart about fossil CO₂ emissions. The source gives us an Excel workbook, but I am not sure how to start reading a large Excel file in R. What package and function should I use?
 
 ## Response:
-6/22/2026, 1:48:01 PM
+6/22/2026, 1:48:13 PM
 
 Use the **`readxl`** package. Start by checking the workbook’s sheet names with `excel_sheets()`, then import the relevant sheet using `read_excel()`.
 

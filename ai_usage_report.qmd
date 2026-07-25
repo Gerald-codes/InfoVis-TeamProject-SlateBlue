@@ -1,58 +1,95 @@
 ---
 title: "AI Usage Report"
-subtitle: "CSC3107 Team Poster Project -- Team SlateBlue"
+subtitle: "CSC3107 Information Visualization -- Team SlateBlue"
 author: "Team SlateBlue"
 date: today
 format:
   html:
     theme: flatly
     toc: true
-    embed-resources: true
+    toc-depth: 3
 execute:
   echo: false
 ---
 
 ## AI Usage Report
 
-*This report documents how Team SlateBlue used generative AI tools throughout the poster project. All referenced conversations can be found in the AI Interaction Record files in the `ai_logs/` folder.*
+This report reflects on how Team SlateBlue used generative AI during the redesign of the Carbon Brief fossil CO₂ emissions visualisation. The complete prompts and responses are retained in the accompanying `ai_logs_merged.md` AI Interaction Record. References to specific implementation areas are included so that the contribution of each AI tool can be traced.
 
-### 1. Tools Used
+## 1. Tools Used
 
-| Tool | Version | Purpose |
-|------|---------|---------|
-| Claude (Anthropic) | Claude Sonnet 4.6 | Project scaffolding, R/ggplot2 code generation, design feedback |
-| *(Add other tools your team used)* | | |
+Our team used both **ChatGPT** and **Claude Sonnet through Perplexity**, although they contributed at different stages of the project.
 
-### 2. Prompting Strategies
+ChatGPT was mainly used for data preparation and implementation. Its contributions included explaining unfamiliar R functions, reshaping the emissions and World Bank datasets, identifying the five highest-emitting countries, standardising country names, generating custom sparkline images and integrating GDP data.
 
-*(Describe how you framed prompts. Did you iterate? Did you provide context like data samples, prior plot drafts, or error messages?)*
+Claude Sonnet through Perplexity was used later to refine the existing sparkline table. Its contributions focused on plot dimensions, event annotations, `ggplot2` layer mappings, clipped labels, scale choices, spacing and conditional formatting.
 
-**Example:** We provided Claude with our week 5 proposal PDF, the instructor feedback notes, and the raw Excel dataset structure when asking it to scaffold the project. This gave the AI enough context to generate code that matched our specific dataset columns and the conversion factor (MtC to GtCO2). We iterated on prompts by starting broad ("generate the requirements files for the project") and then refining based on the output.
+Both tools were treated as technical assistants. Their suggestions were tested, modified or rejected against our data, rendered outputs and project requirements.
 
-### 3. Influence on Design Decisions
+## 2. Prompting Strategies
 
-**Decision 1: Sparkline summary table**
-The instructor feedback suggested using a sparkline table. When we asked Claude to incorporate this, it suggested a dual approach: a `knitr::kable` summary statistics table paired with sparkline-style small multiples using `ggplot2` facets with minimal axis chrome. We adopted this because the `gt` sparkline approach would have required additional dependencies, and the faceted mini-charts achieve the same visual effect while staying within core `ggplot2`.
+Our prompting strategy became more focused as the project progressed. Early interactions concentrated on understanding the Carbon Brief workbook and building the data preparation workflow. ChatGPT was used to explain how to import Excel sheets, skip metadata rows, rename the year field, inspect columns and reshape the emissions data into a long format (AI Interaction Log: **Data import and cleaning**).
 
-*(See AI Interaction Record: `ai_logs/ai-log-claude-sonnet-4-6.md`, conversation on [date])*
+As the implementation developed, our prompts became increasingly specific. Rather than asking for a complete solution, we requested guidance on individual tasks such as locating the boundary between country and aggregate columns, reshaping selected countries, validating lookup tables and ranking countries by the latest confirmed emissions value (AI Interaction Log: **Country selection and lookup validation**).
 
-**Decision 2: % share line chart instead of stacked area for "Rest of World"**
-The instructor asked whether "Rest of World" was necessary and suggested representing it as a percentage. Claude suggested replacing the stacked area entirely with a % share line chart where all five regions are plotted as lines. We accepted this because it directly addresses the original chart's core flaw (unstacked comparisons) and incorporates the instructor's feedback.
+We also supplied code snippets, error messages and descriptions of the intended output. During the sparkline implementation, ChatGPT was asked about looping over nested data with `pmap_chr()`, saving plots temporarily with `tempdir()` and inserting images into a `gt` table using `local_image()` and `text_transform()` (AI Interaction Log: **Custom sparkline implementation**).
 
-*(See AI Interaction Record: `ai_logs/ai-log-claude-sonnet-4-6.md`, conversation on [date])*
+A similar approach was used with Claude Sonnet through Perplexity. Once the table was working, we provided the existing code and described specific issues such as limited chart space, crowded event labels and errors caused by inherited aesthetics. This allowed the responses to focus on refining the existing design (AI Interaction Log: **Sparkline refinement and debugging**).
 
-### 4. Corrections and Rejections
+This iterative approach helped us understand each component and improve the project gradually.
 
-**Correction 1:** *(Describe a case where you corrected or rejected AI output. For example: the AI generated code that used a wrong column name, produced an incorrect aggregation, suggested a chart type that didn't serve the design brief, etc.)*
+## 3. Influence on Design and Implementation Decisions
 
-**Correction 2:** *(Describe another case. For example: the AI's suggested colour palette didn't have enough contrast, the annotation placement was wrong, the data cleaning missed a step, etc.)*
+### 3.1 Custom sparkline implementation
 
-### 5. Ethical and Accountable Use
+One major AI-influenced decision concerned the sparkline summary table. ChatGPT initially introduced the built-in sparkline functions in `gtExtras`. After testing them, the team found that they did not provide enough control over colours, shaded areas, endpoint markers and event annotations.
 
-- **Verification:** All data transformations were verified against the original Excel file. The conversion factor (1 MtC = 3.664 MtCO2) was cross-checked with the dataset's own documentation in the Summary sheet.
-- **Attribution:** AI-generated code was reviewed, understood, and modified by team members before inclusion. This report documents all significant AI contributions.
-- **Limitations observed:** *(Note any limitations, e.g., AI couldn't read the Excel file directly, suggested packages that weren't installed, produced plausible but incorrect column names, etc.)*
+ChatGPT then proposed generating each sparkline as a separate `ggplot2` chart, saving it as a temporary PNG and inserting it into the `gt` table. The final implementation combined `ggplot2`, `ggsave()`, `tempdir()`, `pmap_chr()`, `local_image()` and `text_transform()` (AI Interaction Log: **Custom sparkline implementation**).
 
----
+The team adopted this approach because it offered greater control while remaining compatible with the table. It supported country-specific colours, shaded areas, endpoint markers and event annotations, producing a result that better matched the intended design.
 
-**Word count:** [INSERT WORD COUNT]
+### 3.2 Selecting the five highest-emitting countries
+
+ChatGPT also influenced the country-selection workflow. The original Carbon Brief visualisation mixed countries with aggregate categories such as EU27 and Rest of World. For the redesign, ChatGPT suggested reshaping the latest confirmed year into country-level data and ranking the values with `slice_max()` (AI Interaction Log: **Country ranking and selection**).
+
+The team retained this method because it avoided manual selection and ensured that the ranking was data-driven. It also created a consistent comparison in which every row represented an individual country. The final decision still depended on team judgement and instructor feedback.
+
+### 3.3 Refining the sparkline table
+
+Claude Sonnet through Perplexity was mainly used after the custom sparkline workflow had been implemented. Its suggestions influenced the saved plot dimensions, the sparkline column width, the placement of event markers and the treatment of labels extending beyond the plotting panel (AI Interaction Log: **Sparkline dimensions and event annotations**).
+
+Claude also helped identify the cause of a `stat_align()` error involving missing `x` and `y` aesthetics. The implementation was corrected by keeping the required mappings in the main `ggplot()` call and using `inherit.aes = FALSE` for the event layer (AI Interaction Log: **Event-layer debugging**).
+
+The team retained individual y-scales because the sparklines were intended to show each country’s historical pattern, while the adjacent numerical columns already supported magnitude comparison.
+
+## 4. Corrections, Refinements and Rejections
+
+We did not accept AI-generated responses without verification. Several suggestions required correction before they were suitable for the final project.
+
+### 4.1 Correcting the GDP comparison period
+
+The original GDP percentage-change workflow used 2018–2023 because that period had been provided in the prompt. After checking with the team, we confirmed that the intended period was 2019–2023 and updated the start-year constant, output names, headings and table labels (AI Interaction Log: **GDP period correction**). This showed that technically valid code can still be unsuitable when the prompt contains an incorrect assumption.
+
+### 4.2 Strengthening GDP validation
+
+During the GDP validation discussion, a simplified version used `&&` inside `mutate()` and treated a missing result as zero. A later review identified that `&&` only evaluates the first element, while replacing a missing result with zero could incorrectly imply that an absent country had complete GDP data.
+
+The team therefore retained missing values and used vectorised logical operators for row-level validation (AI Interaction Log: **GDP validation correction**). This showed that shorter code was not necessarily more accurate.
+
+### 4.3 Evaluating the World Total row
+
+The team considered adding a World Total row to the table. Claude Sonnet through Perplexity recommended leaving it out because the table compared five countries, while a world total represented a different level of aggregation (AI Interaction Log: **World Total design review**).
+
+The team accepted this recommendation because global context was already provided through the emissions-share column. Excluding the row preserved a consistent comparison.
+
+## 5. Ethical and Accountable Use
+
+All AI-generated code was executed locally and checked against intermediate outputs before being included in the project. The team inspected dataset dimensions, year ranges, country names, missing values, calculated totals and percentage changes. The visualisation was also rendered repeatedly to assess clipping, crowding, alignment and readability.
+
+Only selected code snippets, error messages and implementation descriptions were shared. AI-produced wording and code were reviewed and edited by the team, while the full interaction record was retained for transparency and traceability.
+
+The project showed that plausible AI responses could still rely on incorrect assumptions or prioritise simplicity over validation. AI also could not judge the rendered output without team testing and interpretation.
+
+For these reasons, both tools were used as supporting tools rather than authorities. The team remained responsible for selecting the final design, verifying calculations, correcting code and deciding which suggestions to adopt.
+
+**Word count:** 1093 words

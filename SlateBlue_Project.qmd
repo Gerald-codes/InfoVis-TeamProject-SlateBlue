@@ -405,7 +405,13 @@ gdp_raw <- read_excel(
   sheet = "Data",
   skip = 3
 )
-cat("GDP dataset imported:", nrow(gdp_raw), "countries,", ncol(gdp_raw), "columns\n")
+cat(
+  "GDP dataset imported:",
+  nrow(gdp_raw),
+  "countries,",
+  ncol(gdp_raw),
+  "columns\n"
+)
 ```
 
 
@@ -449,10 +455,14 @@ gdp_clean <- gdp_raw |>
   arrange(country, year)
 
 cat(
-  "Clean GDP data:", n_distinct(gdp_clean$country), "countries,",
-  min(gdp_clean$year), "-", max(gdp_clean$year), "\n"
+  "Clean GDP data:",
+  n_distinct(gdp_clean$country),
+  "countries,",
+  min(gdp_clean$year),
+  "-",
+  max(gdp_clean$year),
+  "\n"
 )
-
 ```
 
 #### 4.4.11 Validate GDP Data
@@ -492,7 +502,7 @@ into start and end values, which are then used to calculate the percentage
 change in GDP over the selected period.
 ```{r}
 gdp_change_2019_2023 <- gdp_clean |>
-  
+
   filter(
     year %in% c(CHANGE_START_YEAR, CHANGE_END_YEAR)
   ) |>
@@ -518,9 +528,7 @@ gdp_change_2019_2023 <- gdp_clean |>
   ) |>
 
   mutate(
-    gdp_pct_change_2019_2023 = (
-      gdp_end / gdp_start - 1
-    ) * 100
+    gdp_pct_change_2019_2023 = (gdp_end / gdp_start - 1) * 100
   ) |>
 
   arrange(
@@ -665,12 +673,10 @@ spark_data <- emissions_percapita |>
     .groups = "drop"
   ) |>
   mutate(
-    emissions_pct_change_2019_2023 = (
-      latest / emissions_2019 - 1
-    ) * 100,
+    emissions_pct_change_2019_2023 = (latest / emissions_2019 - 1) * 100,
     spark_colour = unname(country_colours[as.character(country)])
   ) |>
-  
+
   # join the calculated GDP percentage change
   left_join(
     gdp_change_2019_2023 |>
@@ -845,10 +851,12 @@ spark_data |>
     emissions_change_2019_2023_display
   ) |>
   gt() |>
-  cols_hide(columns = c(
+  cols_hide(
+    columns = c(
       gdp_pct_change_2019_2023,
       emissions_pct_change_2019_2023
-    )) |>
+    )
+  ) |>
   text_transform(
     locations = cells_body(columns = spark_path),
     fn = function(paths) map(paths, ~ local_image(filename = .x, height = 73))
