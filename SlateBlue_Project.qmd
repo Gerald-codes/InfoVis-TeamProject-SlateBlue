@@ -1019,7 +1019,7 @@ The visualization highlights differences in historical trends and emission level
 
 The AI-related supporting documents are provided separately:
 
-- [AI Interaction Log](ai_log/)
+- [AI Interaction Log](ai_logs/ai_logs_merged.md)
 - [AI Usage Report](ai_usage_report.html)
 
 The interaction log records the prompts and responses that influenced the critique, design decisions, coding process, and rejected suggestions. The AI Usage Report summarises how AI tools were used in the project and includes the required word count.
